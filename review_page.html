@@ -1,0 +1,2172 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Goosh-o-Ghalam</title>
+<style>
+  :root {
+    --bg: #f6f5f2; --card: #ffffff; --text: #1d1d1f; --muted: #6b6b70; --line: #e3e1dc;
+    --accent: #2f6fdb; --accent-text: #ffffff; --unsure: #ffe28a; --unsure-text: #3a2c00;
+    --sel: #cfe0ff; --sel-ring: #2f6fdb; --edited: #1e7a46; --warn: #b3261e; --btn: #efeee9;
+    --shadow: 0 -6px 24px rgba(0,0,0,.08);
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #17181a; --card: #202124; --text: #ececee; --muted: #9a9aa2; --line: #33343a;
+      --accent: #5b8ef0; --accent-text: #0d1220; --unsure: #6b5310; --unsure-text: #fff3c4;
+      --sel: #23395f; --sel-ring: #5b8ef0; --edited: #7ad49b; --warn: #ff8a80; --btn: #2c2d31;
+      --shadow: 0 -6px 24px rgba(0,0,0,.5);
+    }
+  }
+  * { box-sizing: border-box; }
+  html { scroll-padding-top: 130px; }
+  .player-row { max-width: 920px; margin: 0 auto; padding: 0 16px 10px; display: flex; align-items: center; gap: 8px 12px;
+                flex-wrap: wrap; }
+  .player-row .tl { flex: 1 1 160px; }
+  .pp { width: 36px; height: 36px; border-radius: 50%; padding: 0; display: grid; place-items: center; flex: 0 0 auto;
+        background: var(--accent); color: var(--accent-text); border: 0; }
+  .clock { font: 12px ui-monospace, Consolas, monospace; color: var(--muted); white-space: nowrap; }
+  .tl { position: relative; flex: 1 1 auto; height: 20px; cursor: pointer; touch-action: none; min-width: 80px; }
+  .tl::before, .tl-avail, .tl-played { content: ""; position: absolute; left: 0; top: 8px; height: 4px; border-radius: 2px; }
+  .tl::before { right: 0; background: var(--line); }
+  .tl-avail { width: 0; background: color-mix(in srgb, var(--accent) 35%, var(--line)); }
+  .tl-played { width: 0; background: var(--accent); }
+  .tl:hover::before, .tl:hover .tl-avail, .tl:hover .tl-played { top: 7px; height: 6px; }
+  .tl-knob { position: absolute; top: 4px; left: 0; width: 12px; height: 12px; margin-left: -6px; border-radius: 50%; background: var(--accent); }
+  .tl-tip { position: absolute; bottom: 22px; transform: translateX(-50%); font: 11px ui-monospace, Consolas, monospace;
+            background: var(--text); color: var(--bg); padding: 2px 6px; border-radius: 4px; white-space: nowrap; pointer-events: none; }
+  select { font: inherit; font-size: 13px; padding: 4px 6px; border-radius: 6px; border: 1px solid var(--line);
+           background: var(--btn); color: var(--text); }
+  #filesBtn { flex: 0 0 auto; }
+  .model-tag { font-size: 12px; color: var(--muted); border: 1px solid var(--line); border-radius: 999px;
+               padding: 1px 10px; white-space: nowrap; text-decoration: none; }
+  .model-tag:hover { color: var(--accent); border-color: var(--accent); }
+  .model-link { color: var(--text); font-weight: 600; text-decoration: none; }
+  .model-link:hover, a.alt-name:hover { color: var(--accent); text-decoration: underline; }
+  a.alt-name { text-decoration: none; }
+  .line { user-select: none; }
+  .w.auto { color: var(--accent); text-decoration: underline dashed; text-underline-offset: 6px; }
+  .changes-panel { position: fixed; right: 16px; top: 120px; z-index: 8; width: min(560px, calc(100% - 32px)); max-height: 60vh;
+                   display: flex; flex-direction: column; background: var(--card); border: 1px solid var(--line);
+                   border-radius: 12px; box-shadow: 0 10px 30px rgba(0,0,0,.25); }
+  .cp-head { display: flex; align-items: center; gap: 10px; padding: 10px 14px; border-bottom: 1px solid var(--line); font-size: 14px; }
+  .cp-head .spacer { flex: 1; }
+  .cp-list { overflow: auto; }
+  .cp-row { display: flex; align-items: center; gap: 10px; padding: 7px 14px; border-bottom: 1px solid var(--line); cursor: pointer; font-size: 13px; }
+  .cp-row:hover { background: var(--btn); }
+  .cp-row.current { box-shadow: inset 3px 0 0 var(--accent); background: var(--btn); }
+  .cp-time { font: 12px ui-monospace, Consolas, monospace; color: var(--muted); min-width: 44px; }
+  .cp-text { flex: 1; min-width: 0; direction: rtl; text-align: right; font-family: "Vazirmatn", "Segoe UI", Tahoma, sans-serif; font-size: 16px; }
+  .cp-text .was { color: var(--muted); text-decoration: line-through; }
+  .cp-text .now { color: var(--accent); }
+  .cp-text .ok { color: var(--edited); }
+  .cp-by { color: var(--muted); white-space: nowrap; font-size: 12px; }
+  .cp-row button { font-size: 12px; padding: 3px 8px; }
+  .auto-nav { display: inline-flex; align-items: center; gap: 4px; }
+  .auto-nav button { padding: 2px 9px; font-size: 14px; }
+  .auto-nav span { font-size: 12px; color: var(--muted); min-width: 52px; text-align: center; }
+  .auto-count { font-size: 12px; padding: 3px 10px; border-radius: 999px; color: var(--accent); border-color: var(--accent); background: none; }
+  .auto-note { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; font-size: 13px; color: var(--muted); margin-bottom: 8px; }
+  .auto-note bdi { font-family: "Vazirmatn", "Segoe UI", Tahoma, sans-serif; font-size: 16px; color: var(--text); }
+  .w.off { color: var(--muted); text-decoration: line-through; text-decoration-color: color-mix(in srgb, var(--muted) 70%, transparent); }
+  .w.off.sel { color: var(--text); }
+  .mchip { font: 11px "Segoe UI", system-ui, sans-serif; direction: ltr; unicode-bidi: isolate; display: inline-block; vertical-align: middle;
+           background: var(--btn); border: 1px solid var(--line); border-radius: 999px; padding: 0 8px; margin: 0 4px; color: var(--muted); line-height: 1.6; }
+  .hide-off .w.off, .hide-off .mchip, .hide-off .seg.all-off { display: none; }
+  .mark-row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-bottom: 8px; font-size: 13px; }
+  .mark-hint { font-size: 12px; }
+  .dock.multi .edit-only, .dock.multi #alts { display: none !important; }
+  .fs-top { display: flex; gap: 8px; align-items: center; margin-bottom: 10px; flex-wrap: wrap; }
+  #fsPath { flex: 1 1 260px; min-width: 0; font: 14px ui-monospace, Consolas, monospace; padding: 7px 10px;
+            border-radius: 8px; border: 1px solid var(--line); background: var(--card); color: var(--text); direction: ltr; }
+  .fs-drives { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 8px; }
+  .fs-drives button { padding: 3px 10px; font-size: 13px; }
+  .fs-status { margin: 4px 0 10px; color: var(--muted); font-size: 13px; white-space: pre-line; }
+  .fs-list { padding: 4px 0; }
+  .fs-row { display: flex; align-items: center; gap: 12px; padding: 8px 16px; cursor: pointer; border-bottom: 1px solid var(--line); }
+  .fs-row:last-child { border-bottom: 0; }
+  .fs-row:hover { background: var(--btn); }
+  .fs-row.current { box-shadow: inset 3px 0 0 var(--accent); }
+  .fs-icon { width: 20px; text-align: center; flex: 0 0 auto; }
+  .fs-name { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .fs-meta { color: var(--muted); font-size: 12px; white-space: nowrap; }
+  .badge { font-size: 12px; padding: 1px 8px; border-radius: 999px; border: 1px solid var(--line); white-space: nowrap; color: var(--muted); }
+  .badge.partial { color: var(--accent); border-color: var(--accent); }
+  .badge.transcribed { color: var(--text); }
+  .badge.done { color: var(--edited); border-color: var(--edited); }
+  .set-modal { max-width: 520px; }
+  .set-modal p#setSub { margin: 0 0 14px; }
+  .set-group { padding: 10px 0; border-top: 1px solid var(--line); }
+  .set-label { font-size: 14px; margin-bottom: 6px; }
+  .set-lists { display: flex; flex-wrap: wrap; gap: 6px 16px; }
+  .set-lists label, .set-check { display: flex; align-items: center; gap: 8px; font-size: 14px; margin: 3px 0; }
+  .set-lists .muted { font-size: 12px; }
+  .set-note { font-size: 12px; color: var(--muted); margin-top: 6px; }
+  .set-modal input[type=range] { width: 100%; accent-color: var(--accent); }
+  .fs-row .fs-redo { font-size: 12px; padding: 2px 8px; }
+  .fs-empty { padding: 16px; color: var(--muted); }
+  .fs-foot { display: flex; justify-content: space-between; align-items: center; gap: 12px; margin-top: 14px; flex-wrap: wrap; font-size: 13px; }
+  .back-now { position: fixed; left: 50%; transform: translateX(-50%); bottom: 16px; z-index: 7; border-radius: 999px;
+              background: var(--accent); color: var(--accent-text); border: 0; font-weight: 600; box-shadow: 0 4px 14px rgba(0,0,0,.25); }
+  .w.now { box-shadow: inset 0 -3px 0 var(--accent); background: color-mix(in srgb, var(--accent) 16%, transparent); }
+  body { margin: 0; background: var(--bg); color: var(--text);
+         font: 15px/1.5 "Segoe UI", system-ui, sans-serif; }
+  .fa { font-family: "Vazirmatn", "Segoe UI", Tahoma, sans-serif; }
+
+  header { position: sticky; top: 0; z-index: 5; background: var(--bg); border-bottom: 1px solid var(--line); }
+  .head { max-width: 920px; margin: 0 auto; padding: 12px 16px; display: flex; align-items: center;
+          gap: 12px; flex-wrap: wrap; }
+  h1 { font-size: 16px; margin: 0; font-weight: 600; flex: 1 1 200px; overflow: hidden;
+       text-overflow: ellipsis; white-space: nowrap; }
+  .count { font-size: 13px; color: var(--muted); }
+  .count b { color: var(--text); }
+  .bar { height: 3px; background: var(--line); }
+  .bar > div { height: 100%; width: 0; background: var(--accent); transition: width .3s; }
+
+  main { max-width: 920px; margin: 0 auto; padding: 16px 16px 280px; }
+  .hint { font-size: 13px; color: var(--muted); margin: 0 0 12px; }
+  .doc { background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 8px 0; }
+  .seg { display: flex; gap: 12px; padding: 6px 18px; direction: rtl; align-items: baseline; }
+  .seg:hover { background: color-mix(in srgb, var(--btn) 50%, transparent); }
+  .ts { flex: 0 0 auto; direction: ltr; font: 12px ui-monospace, Consolas, monospace; color: var(--muted);
+        background: none; border: 0; padding: 2px 4px; border-radius: 4px; cursor: pointer; min-width: 52px; }
+  .ts:hover { color: var(--accent); background: var(--btn); }
+  .line { margin: 0; font-size: 21px; line-height: 2.1; text-align: right; flex: 1 1 auto; }
+  .w { cursor: pointer; border-radius: 5px; padding: 1px 2px; }
+  .w:hover { background: var(--btn); }
+  .w.unsure { background: var(--unsure); color: var(--unsure-text); }
+  .w.edited { color: var(--edited); text-decoration: underline dotted; text-underline-offset: 6px; }
+  .w.blanked { color: var(--muted); }
+  .w.sel { background: var(--sel); color: var(--text); box-shadow: 0 0 0 2px var(--sel-ring); }
+  .empty { color: var(--muted); font-size: 13px; }
+  .live-foot { display: flex; align-items: center; gap: 10px; padding: 14px 18px; color: var(--muted); font-size: 14px; }
+  .dot { width: 9px; height: 9px; border-radius: 50%; background: var(--accent); animation: pulse 1.2s ease-in-out infinite; }
+  @keyframes pulse { 50% { opacity: .25; } }
+  #liveHead { color: var(--accent); }
+
+  button { font: inherit; font-size: 14px; padding: 7px 13px; border-radius: 8px; border: 1px solid var(--line);
+           background: var(--btn); color: var(--text); cursor: pointer; }
+  button:hover { filter: brightness(0.96); }
+  button:disabled { opacity: .5; cursor: default; }
+  button.primary { background: var(--accent); color: var(--accent-text); border-color: var(--accent); font-weight: 600; }
+  button.danger { color: var(--warn); }
+  kbd { font: 11px ui-monospace, Consolas, monospace; border: 1px solid var(--line); border-radius: 4px;
+        padding: 0 4px; margin-left: 5px; opacity: .8; }
+
+  /* editor dock */
+  .dock { position: fixed; left: 0; right: 0; bottom: 0; z-index: 6; background: var(--card);
+          border-top: 1px solid var(--line); box-shadow: var(--shadow); }
+  .dock-in { max-width: 920px; margin: 0 auto; padding: 12px 16px 14px; }
+  .meta { display: flex; gap: 14px; flex-wrap: wrap; align-items: center; font-size: 13px; color: var(--muted);
+          margin-bottom: 8px; }
+  .meta b { color: var(--text); font-weight: 600; }
+  .meta .spacer { flex: 1; }
+  .player { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 8px; }
+  audio { flex: 1 1 260px; min-width: 0; height: 34px; }
+  label.inline { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; color: var(--muted); }
+  input[type=text] { width: 100%; font-size: 22px; padding: 8px 12px; border-radius: 10px; direction: rtl;
+                     border: 2px solid var(--line); background: var(--bg); color: var(--text); }
+  input[type=text]:focus { outline: none; border-color: var(--accent); }
+  .add { margin: 8px 0 10px; display: flex; gap: 16px; flex-wrap: wrap; font-size: 13px; align-items: center; }
+  .add label { display: inline-flex; align-items: center; gap: 5px; }
+  .add .disabled { color: var(--muted); }
+  .rule-preview { color: var(--muted); }
+  .rule-preview bdi { font-family: "Vazirmatn", "Segoe UI", Tahoma, sans-serif; font-size: 15px; color: var(--text);
+                      background: var(--btn); border: 1px solid var(--line); border-radius: 5px; padding: 0 6px; }
+  .actions { display: flex; gap: 8px; flex-wrap: wrap; }
+  .alts { margin: 8px 0 0; display: grid; gap: 4px; }
+  .alt { display: flex; gap: 10px; align-items: center; font-size: 13px; flex-wrap: wrap; min-height: 30px; }
+  .alt-name { color: var(--muted); min-width: 64px; }
+  .alt-name kbd { margin-left: 0; margin-right: 4px; }
+  .chip { font-family: "Vazirmatn", "Segoe UI", Tahoma, sans-serif; font-size: 17px; padding: 1px 12px; border-radius: 999px;
+          background: var(--btn); border: 1px solid var(--line); color: var(--text); cursor: pointer; direction: rtl; }
+  .chip:hover { border-color: var(--accent); }
+  .chip.same { border-color: var(--edited); }
+  .alt-full { font-family: "Vazirmatn", "Segoe UI", Tahoma, sans-serif; color: var(--muted); font-size: 15px; direction: rtl;
+              unicode-bidi: isolate; }
+  .alt-full mark { background: none; color: var(--text); font-weight: 600; }
+  .alt-status { color: var(--muted); font-style: italic; }
+  .alt-conf { font-size: 12px; color: var(--muted); cursor: help; }
+  .alt-conf.low { color: var(--warn); }
+  .play-hint { font-size: 12px; color: var(--warn); }
+
+  .waiting { text-align: center; padding: 48px 20px; white-space: pre-line; }
+  .spinner { width: 28px; height: 28px; border: 3px solid var(--line); border-top-color: var(--accent);
+             border-radius: 50%; margin: 0 auto 14px; animation: spin 1s linear infinite; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .wait-bar { width: min(360px, 80%); height: 6px; margin: 14px auto 0; border-radius: 3px; background: var(--line); overflow: hidden; }
+  .wait-bar > div { height: 100%; width: 0; background: var(--accent); transition: width .3s; }
+
+  .modal-bg { position: fixed; inset: 0; background: rgba(0,0,0,.35); z-index: 10; display: grid; place-items: center; padding: 16px; }
+  .modal { background: var(--card); border-radius: 12px; padding: 20px; max-width: 460px; width: 100%;
+           border: 1px solid var(--line); }
+  .modal h2 { font-size: 17px; margin: 0 0 8px; }
+  .modal p { margin: 0 0 16px; color: var(--muted); }
+  .modal .actions { justify-content: flex-end; }
+
+  .toast { position: fixed; left: 50%; top: 70px; transform: translateX(-50%); background: var(--text); z-index: 20;
+           color: var(--bg); padding: 10px 16px; border-radius: 10px; font-size: 14px; max-width: calc(100% - 32px);
+           opacity: 0; transition: opacity .25s; pointer-events: none; direction: ltr; }
+  .toast.show { opacity: .95; }
+  .hidden { display: none !important; }
+
+  /* Close: always in the header's top-right corner, however the rest wraps */
+  .head { position: relative; padding-right: 116px; }
+  #quitBtn { position: absolute; right: 16px; top: 12px; }
+
+  /* header menu */
+  body:not(.has-doc) .doc-only { display: none !important; }
+  .menu-wrap { position: relative; }
+  .menu { position: absolute; right: 0; top: calc(100% + 6px); z-index: 12; min-width: 270px; padding: 6px;
+          background: var(--card); border: 1px solid var(--line); border-radius: 10px; box-shadow: 0 10px 30px rgba(0,0,0,.25); }
+  .menu .mi { display: flex; width: 100%; align-items: center; gap: 10px; text-align: left; border: 0; background: none;
+              padding: 8px 10px; border-radius: 6px; font-size: 14px; }
+  .menu .mi:hover { background: var(--btn); filter: none; }
+  .menu .mi .k { margin-left: auto; color: var(--muted); font: 11px ui-monospace, Consolas, monospace; }
+  .menu hr { border: 0; border-top: 1px solid var(--line); margin: 6px 4px; }
+  .menu label.mi { cursor: pointer; }
+  .pill { font-size: 12px; padding: 3px 10px; border-radius: 999px; border: 1px solid var(--line); color: var(--muted);
+          white-space: nowrap; display: inline-flex; align-items: center; gap: 6px; background: none; }
+  .pill .dot { width: 7px; height: 7px; }
+  button.pill { cursor: pointer; }
+  .icon-btn { padding: 7px 10px; }
+
+  /* seek-bar marks: unsure parts, automatic changes, off-topic stretches */
+  .tl-marks { position: absolute; left: 0; right: 0; top: 0; bottom: 0; pointer-events: none; }
+  .tk { position: absolute; top: 3px; width: 2px; height: 14px; margin-left: -1px; border-radius: 1px; }
+  .tk-u { background: #e0a800; }
+  .tk-a { background: var(--accent); top: 5px; height: 10px; opacity: .8; }
+  .tk-off { position: absolute; top: 8px; height: 4px; background: repeating-linear-gradient(45deg, var(--muted) 0 2px, transparent 2px 4px); opacity: .7; }
+  .tk-s { position: absolute; top: 15px; height: 3px; }   /* who speaks when (under the bar) */
+
+  /* words: punctuation, speakers */
+  .pm { color: var(--muted); }
+  .spk { font: 12px "Segoe UI", system-ui, sans-serif; direction: ltr; unicode-bidi: isolate; display: inline-flex; align-items: center;
+         gap: 5px; vertical-align: middle; border: 1px solid var(--line); border-radius: 999px; padding: 0 9px; margin-left: 8px;
+         background: var(--card); color: var(--text); line-height: 1.7; cursor: pointer; }
+  .spk::before { content: ""; width: 8px; height: 8px; border-radius: 50%; background: var(--c); }
+  .spk:hover { border-color: var(--accent); }
+
+  /* editor bar additions */
+  .orig-note { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; font-size: 13px; color: var(--muted); margin-bottom: 8px; }
+  .orig-note bdi { font-family: "Vazirmatn", "Segoe UI", Tahoma, sans-serif; font-size: 16px; color: var(--text); }
+  .player select { font-size: 12px; }
+
+  /* find panel */
+  .sp-form { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; padding: 10px 14px 0; font-size: 13px; }
+  .sp-form input[type=text] { flex: 1 1 200px; width: auto; font-size: 17px; padding: 5px 10px; border-width: 1px; }
+  .sp-sum { padding: 8px 14px; font-size: 12px; border-bottom: 1px solid var(--line); }
+  .cp-text mark { background: var(--unsure); color: var(--unsure-text); border-radius: 3px; padding: 0 2px; }
+  .cp-file { color: var(--muted); font-size: 12px; max-width: 180px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+  /* shortcuts */
+  .keys { display: grid; grid-template-columns: auto 1fr; gap: 6px 14px; font-size: 14px; margin-bottom: 16px; }
+  .keys kbd { margin: 0; font-size: 12px; white-space: nowrap; }
+  .modal input[type=text], .modal input[type=number] { width: 100%; font-size: 16px; padding: 7px 10px; border-radius: 8px;
+         border: 1px solid var(--line); background: var(--bg); color: var(--text); margin-bottom: 14px; direction: auto; }
+  #fsQueueBox { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; margin: 0 0 10px; font-size: 13px; color: var(--muted); }
+</style>
+</head>
+<body>
+<header>
+  <div class="head">
+    <button id="filesBtn" type="button" title="Open another recording (this one stays saved)">☰ Files</button>
+    <h1 id="file">Goosh-o-Ghalam</h1>
+    <a class="model-tag hidden" id="modelTag" target="_blank" rel="noopener"></a>
+    <span class="count hidden" id="liveHead"></span>
+    <span class="pill hidden" id="jobHead"><span class="dot"></span><span id="jobText"></span></span>
+    <button class="pill hidden" id="queueHead" type="button" title="Recordings being transcribed in the background: click to see them"></button>
+    <span class="count hidden" id="count"><b id="left">0</b> unsure left</span>
+    <button class="auto-count hidden" id="autoCount" type="button"
+            title="Unsure parts the other models settled by themselves: click for the list"></button>
+    <button id="undoBtn" class="icon-btn doc-only" type="button" disabled title="Nothing to undo">↶</button>
+    <button id="searchBtn" class="icon-btn doc-only" type="button" title="Find (and replace) words, in this recording or all of them (Ctrl+F)">🔍</button>
+    <button id="next" class="hidden" type="button">Next unsure<kbd>N</kbd></button>
+    <div class="menu-wrap">
+      <button id="menuBtn" type="button" aria-haspopup="true" aria-expanded="false" title="Settings, punctuation, speakers, export, close">⋯ More</button>
+      <div class="menu hidden" id="menu" role="menu">
+        <button class="mi doc-only" id="setBtn" type="button" title="Keyword lists, thresholds and other settings of this recording">⚙ Settings of this recording</button>
+        <button class="mi doc-only" id="spkBtn" type="button" title="Work out who speaks when, from the voices">👥 Find speakers…</button>
+        <button class="mi doc-only" id="exportBtn" type="button" title="Write the transcript as it is now as a Word document and a Markdown file">⤓ Save as Word &amp; Markdown</button>
+        <button class="mi doc-only" id="revealBtn" type="button" title="Open this recording's folder (subtitles, documents, saved progress)">📂 Show its files</button>
+        <hr class="doc-only">
+        <button class="mi" id="keysBtn" type="button">⌨ Keyboard shortcuts<span class="k">?</span></button>
+        <hr>
+        <button class="mi danger doc-only" id="redoBtn" type="button" title="Throw away everything saved for this recording and transcribe it again from the start">↻ Start this recording over…</button>
+      </div>
+    </div>
+    <button id="finish" class="primary hidden" type="button">Finish &amp; save subtitles</button>
+    <button id="quitBtn" class="danger" type="button" title="Close the program (everything is saved)">⏻ Close</button>
+  </div>
+  <div class="player-row hidden" id="playerRow">
+    <button id="pp" class="pp" type="button" title="Play / pause (Space or K)" aria-label="Play">
+      <svg id="ppIcon" viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path d="M8 5v14l11-7z" fill="currentColor"/></svg>
+    </button>
+    <span class="clock"><span id="cur">00:00</span> / <span id="dur">00:00</span></span>
+    <div class="tl" id="tl" role="slider" aria-label="Seek" tabindex="-1">
+      <div class="tl-marks" id="tlMarks"></div>
+      <div class="tl-avail" id="tlAvail"></div>
+      <div class="tl-played" id="tlPlayed"></div>
+      <div class="tl-knob" id="tlKnob"></div>
+      <div class="tl-tip hidden" id="tlTip"></div>
+    </div>
+    <select id="speed" title="Speed (Shift+< slower, Shift+> faster)" aria-label="Speed">
+      <option value="0.5">0.5×</option><option value="0.75">0.75×</option><option value="1" selected>1×</option>
+      <option value="1.25">1.25×</option><option value="1.5">1.5×</option><option value="1.75">1.75×</option>
+      <option value="2">2×</option><option value="2.5">2.5×</option><option value="3">3×</option>
+    </select>
+    <label class="inline" title="Hide the parts marked off-topic, and skip them when playing"><input type="checkbox" id="hideOff"> hide off-topic</label>
+  </div>
+  <audio id="main" preload="auto"></audio>
+  <div class="bar"><div id="progress"></div></div>
+</header>
+
+<main>
+  <section class="doc waiting" id="waiting">
+    <div class="spinner" id="spinner"></div>
+    <div id="waitText">Connecting…</div>
+    <div class="wait-bar hidden" id="waitBarBox"><div id="waitBar"></div></div>
+  </section>
+
+  <section id="browser" class="hidden">
+    <div class="fs-top">
+      <button id="fsUp" type="button" title="Up one folder">↑ Up</button>
+      <input type="text" id="fsPath" dir="ltr" spellcheck="false" aria-label="Folder">
+      <button id="fsGo" type="button">Go</button>
+      <button id="fsBack" class="hidden" type="button">Back to the open file</button>
+    </div>
+    <div class="fs-drives" id="fsDrives"></div>
+    <div id="fsQueueBox">
+      <button id="fsQueue" type="button" title="Transcribe every recording in this folder that isn't transcribed yet, one after another, while you review another one. You can close the page: the program stays open until the queue is done.">⏩ Transcribe all here in the background</button>
+      <span id="fsQueueSt"></span>
+      <button id="fsQueueStop" class="hidden" type="button" title="Stop the queue (what is transcribed so far is kept)">Stop the queue</button>
+    </div>
+    <p class="fs-status" id="fsStatus"></p>
+    <p class="fs-status" id="fsModels"></p>
+    <div class="doc fs-list" id="fsList"></div>
+    <div class="fs-foot">
+      <span class="muted">Each recording's progress and edits are kept in the program's <code>transcripts</code> folder; opening one again carries on where it was left.</span>
+    </div>
+  </section>
+
+  <section id="review" class="hidden">
+    <p class="hint">Highlighted words are the ones the model was unsure about. Click any word to hear it and edit it;
+      Shift+click selects several words. The player above plays the whole recording and highlights each word as it is spoken; click a time to play from that line.</p>
+    <div class="doc" id="doc"></div>
+    <div class="live-foot hidden" id="liveFoot"><span class="dot"></span><span id="liveFootText">Transcribing…</span></div>
+  </section>
+</main>
+
+<div class="dock hidden" id="dock">
+  <div class="dock-in">
+    <div class="meta">
+      <span>at <b id="dTime"></b></span>
+      <span>confidence <b id="dConf"></b></span>
+      <span class="hidden" id="dModelWrap">heard by <a class="model-link" id="dModel" target="_blank" rel="noopener"></a></span>
+      <span id="dCount"></span>
+      <span class="spacer"></span>
+      <button id="close" type="button">Close<kbd>Esc</kbd></button>
+    </div>
+    <div class="player">
+      <audio id="audio" class="edit-only" controls preload="auto"></audio>
+      <button id="replay" class="edit-only" type="button">Replay<kbd>Ctrl+Space</kbd></button>
+      <label class="inline edit-only"><input type="checkbox" id="slow"> slower</label>
+      <span class="play-hint hidden" id="playHint">Click ▶ to play (the browser blocked autoplay).</span>
+    </div>
+    <div class="mark-row">
+      <button id="markBtn" type="button" title="Leave the selected words out of the lesson-only files">Mark off-topic<kbd>M</kbd></button>
+      <button id="unmarkBtn" type="button">Unmark<kbd>Shift+M</kbd></button>
+      <span class="muted mark-hint">drag across words (or Shift+click) to select across lines</span>
+    </div>
+    <div class="auto-note hidden edit-only" id="autoNote">
+      <span class="auto-nav"><button id="autoPrev" type="button" title="Previous automatic change">‹</button><span id="autoPos"></span><button id="autoNext" type="button" title="Next automatic change">›</button></span>
+      <span id="autoNoteText"></span>
+      <button id="autoUndo" type="button">Put back the original</button>
+    </div>
+    <div class="orig-note hidden edit-only" id="origNote">
+      <span id="origText"></span>
+      <button id="origBack" type="button">Put back what it heard</button>
+    </div>
+    <input type="text" id="text" class="fa edit-only" autocomplete="off" spellcheck="false" aria-label="Correct text">
+    <div class="alts hidden" id="alts"></div>
+    <div class="add edit-only">
+      <span class="muted">Also add to <span id="kwFile">keywords.txt</span>:</span>
+      <label><input type="radio" name="add" value="" checked> no</label>
+      <label><input type="radio" name="add" value="keyword"> as a keyword</label>
+      <label id="ruleLabel"><input type="radio" name="add" value="rule"> as a rule
+        <span class="rule-preview" id="rulePreview"></span></label>
+    </div>
+    <div class="actions edit-only">
+      <button class="primary" id="save" type="button">Save<kbd>Enter</kbd></button>
+      <button id="keep" type="button">Keep as heard</button>
+      <button id="blank" type="button">Leave blank […]<kbd>Ctrl+B</kbd></button>
+      <button class="danger" id="delete" type="button">Delete words</button>
+      <button id="replAll" class="hidden" type="button" title="Put what you typed in place of every other occurrence of these words in this recording too"></button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-bg hidden" id="setModal">
+  <div class="modal set-modal" role="dialog" aria-labelledby="setTitle">
+    <h2 id="setTitle">Before starting</h2>
+    <p id="setSub"></p>
+    <div class="set-group">
+      <div class="set-label">Keyword lists <span class="muted">— names and terms to spell right</span></div>
+      <div id="setLists" class="set-lists"></div>
+      <div class="set-note">To add a list, put a .txt file in the program's <code>keywords</code> folder. Corrections you add while reviewing go to the first ticked list.</div>
+    </div>
+    <div class="set-group">
+      <div class="set-label">Unsure below <b id="setConfVal"></b></div>
+      <input type="range" id="setConf" min="0.2" max="0.95" step="0.05">
+      <div class="set-note">Words the main model is less sure of are highlighted and checked by the other models.</div>
+    </div>
+    <div class="set-group" id="setAltsBox">
+      <label class="set-check"><input type="checkbox" id="setAlts"> Check unsure words with Nava and Vosk</label>
+      <label class="set-check"><input type="checkbox" id="setAutoOn"> Replace them automatically when Nava is at least <b id="setAutoVal"></b> sure, and surer than Shenava</label>
+      <input type="range" id="setAuto" min="0.5" max="0.95" step="0.05">
+      <div class="set-note">Vosk only counts when it heard the same words as Nava (then 50% each is enough): on its own its scores are too optimistic, often 100% for wrong words.</div>
+    </div>
+    <div class="actions">
+      <button id="setCancel" type="button">Cancel</button>
+      <button class="primary" id="setOk" type="button">Start</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-bg hidden" id="askModal">
+  <div class="modal" role="dialog" aria-labelledby="askTitle">
+    <h2 id="askTitle"></h2>
+    <p id="askText"></p>
+    <input type="text" id="askInput" autocomplete="off">
+    <div class="actions">
+      <button id="askCancel" type="button">Cancel</button>
+      <button class="primary" id="askOk" type="button">OK</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-bg hidden" id="keysModal">
+  <div class="modal" role="dialog" aria-labelledby="keysTitle">
+    <h2 id="keysTitle">Keyboard shortcuts</h2>
+    <div class="keys">
+      <kbd>Space</kbd> or <kbd>K</kbd><span>play / pause the recording</span>
+      <kbd>← →</kbd><span>back / forward 5 seconds</span>
+      <kbd>J</kbd> <kbd>L</kbd><span>back / forward 10 seconds</span>
+      <kbd>Shift + &lt; &gt;</kbd><span>slower / faster</span>
+      <kbd>N</kbd><span>next unsure part (after the selection, or after where the player is)</span>
+      <kbd>Enter</kbd><span>save the correction</span>
+      <kbd>Esc</kbd><span>close the editor bar or a dialog</span>
+      <kbd>Ctrl + Space</kbd><span>replay the selected words</span>
+      <kbd>Ctrl + B</kbd><span>leave the selected words blank […]</span>
+      <kbd>M</kbd> <kbd>Shift + M</kbd><span>mark / unmark the selected words off-topic</span>
+      <kbd>Ctrl + Z</kbd><span>undo the last change</span>
+      <kbd>Ctrl + F</kbd><span>find (and replace)</span>
+      <kbd>?</kbd><span>this list</span>
+    </div>
+    <p>Shift+click or drag across words to select several, also across lines.</p>
+    <div class="actions"><button class="primary" id="keysOk" type="button">OK</button></div>
+  </div>
+</div>
+
+<div class="changes-panel hidden" id="searchPanel" role="dialog" aria-label="Find">
+  <div class="cp-head">
+    <b>Find</b>
+    <label class="inline"><input type="radio" name="spScope" value="this" checked> this recording</label>
+    <label class="inline"><input type="radio" name="spScope" value="all"> all recordings</label>
+    <span class="spacer"></span>
+    <button id="spClose" type="button">Close</button>
+  </div>
+  <div class="sp-form"><input type="text" id="spQ" class="fa" dir="rtl" placeholder="word or phrase" autocomplete="off" spellcheck="false" aria-label="Find"></div>
+  <div class="sp-form" id="spReplRow">
+    <input type="text" id="spR" class="fa" dir="rtl" placeholder="replace with" autocomplete="off" spellcheck="false" aria-label="Replace with">
+    <button id="spReplBtn" type="button" disabled>Replace all</button>
+  </div>
+  <div class="muted sp-sum" id="spSum">Type at least two letters. Spelling variants (ي/ی, ك/ک, half-spaces) count as the same.</div>
+  <div class="cp-list" id="spList"></div>
+</div>
+
+<div class="modal-bg hidden" id="finishModal">
+  <div class="modal">
+    <h2>Save the subtitles?</h2>
+    <p id="finishText"></p>
+    <div class="actions" id="finishActions"></div>
+  </div>
+</div>
+
+<button class="back-now hidden" id="backToNow" type="button">↓ Back to the playing word</button>
+<div class="changes-panel hidden" id="changesPanel" role="dialog" aria-label="Automatic changes">
+  <div class="cp-head">
+    <b>Settled automatically</b>
+    <span class="muted" id="cpSummary"></span>
+    <span class="spacer"></span>
+    <button id="cpClose" type="button">Close</button>
+  </div>
+  <div class="cp-list" id="cpList"></div>
+</div>
+<div class="toast" id="toast"></div>
+
+<script>
+const T = new URLSearchParams(location.search).get("t") || "";
+const q = (path) => path + (path.includes("?") ? "&" : "?") + "t=" + encodeURIComponent(T);
+const $ = (id) => document.getElementById(id);
+
+let doc = null;
+let modelName = "the main model";   // the model making the transcript (from /state)
+let changeSeq = 0;                 // last automatic change the page has
+let currentPath = "";              // the recording that is open (from /state)            // {segments, left, total, transcribing, decoded, duration, ...}
+let fileId = null;         // file shown
+let doneFileId = null;     // file whose review was finished (waiting for the transcriber)
+let segById = new Map();
+let segEls = new Map();
+let sel = null;            // {seg, i, j, anchor, unsure}
+let awaitingNext = false;  // caught up: open the next unsure part as soon as it arrives
+let busy = false;
+let loading = false;
+let finished = false;
+let clipUrl = null;
+const CLIP_PAD = 0.2;      // seconds of speech before and after the selected words in the editor bar's clip
+
+// ------------------------------------------------------------------ helpers
+function fmtTime(sec) {
+  sec = Math.max(0, Math.floor(sec));
+  const h = Math.floor(sec / 3600), m = Math.floor(sec / 60) % 60, s = sec % 60;
+  const mm = String(m).padStart(2, "0"), ss = String(s).padStart(2, "0");
+  return h ? `${h}:${mm}:${ss}` : `${mm}:${ss}`;
+}
+function toast(text) {
+  const t = $("toast");
+  t.textContent = text;
+  t.classList.add("show");
+  clearTimeout(toast.timer);
+  toast.timer = setTimeout(() => t.classList.remove("show"), 4000);
+}
+function bdi(text) { const b = document.createElement("bdi"); b.textContent = text; return b; }
+function api(path, body) {
+  return fetch(q(path), body === undefined ? { cache: "no-store" } : {
+    method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body),
+  }).then(async (r) => {
+    const data = await r.json().catch(() => ({}));
+    if (!r.ok) throw new Error(data.error || r.statusText);
+    return data;
+  });
+}
+
+// ------------------------------------------------------------------ speakers
+const SPK_COLORS = ["#2f6fdb", "#d9480f", "#2b8a3e", "#ae3ec9", "#0c8599", "#c2255c", "#5f3dc4", "#a08000", "#868e96", "#e8590c"];
+let spkOf = new Map();     // line id -> speaker number (when speakers were found)
+function spkColor(k) { return SPK_COLORS[k % SPK_COLORS.length]; }
+function spkName(k) { return ((doc && doc.speakers && doc.speakers.names) || {})[String(k)] || `Speaker ${k + 1}`; }
+function speakerOf(turns, a, b) {   // who talks most in [a, b)
+  const share = new Map();
+  for (const [s0, s1, k] of turns) {
+    if (s0 >= b) break;
+    if (s1 <= a) continue;
+    share.set(k, (share.get(k) || 0) + Math.min(b, s1) - Math.max(a, s0));
+  }
+  let best = null, bt = 0;
+  for (const [k, t] of share) if (t > bt) { best = k; bt = t; }
+  return best;
+}
+function computeSpeakers(segs) {
+  const turns = doc && doc.speakers && doc.speakers.turns;
+  if (!turns) return;
+  for (const seg of segs) spkOf.set(seg.id, speakerOf(turns, seg.start, seg.end));
+}
+
+// ------------------------------------------------------------------ rendering
+// Off-topic marks are time ranges [a, b); a word is in one if its start time is.
+function markAt(t) {
+  for (const m of (doc && doc.marks) || []) if (m.a <= t && t < m.b) return m;
+  return null;
+}
+function wordClass(w, m) {
+  let c = "w";
+  if (m) c += " off";
+  else if (w.u !== undefined) c += " unsure";   // unsure words in off-topic parts don't matter
+  if (w.s === "edited") c += " edited";
+  if (w.s === "auto") c += " auto";
+  if (w.s === "blank") c += " blanked";
+  return c;
+}
+function renderSeg(seg) {
+  const row = document.createElement("div");
+  row.className = "seg";
+  row.dataset.id = seg.id;
+  const ts = document.createElement("button");
+  ts.type = "button";
+  ts.className = "ts";
+  ts.textContent = fmtTime(seg.start);
+  ts.title = "Play this line";
+  const p = document.createElement("p");
+  p.className = "line fa";
+  // the speaker's name where the speaker changes (when speakers were found)
+  const spk = spkOf.get(seg.id);
+  if (spk !== undefined && spk !== null && spkOf.get(seg.id - 1) !== spk) {
+    const b = document.createElement("button");
+    b.type = "button"; b.className = "spk"; b.dataset.spk = spk;
+    b.style.setProperty("--c", spkColor(spk));
+    b.textContent = spkName(spk);
+    b.title = "Click to rename this speaker";
+    p.append(b);
+  }
+  let prevMark = null, allOff = seg.words.length > 0;
+  seg.words.forEach((w, i) => {
+    if (i) p.append(" ");
+    const m = markAt(w.t);
+    // a label where a marked stretch starts (or where it continues at a line start)
+    if (m && m !== prevMark) {
+      const chip = document.createElement("span");
+      chip.className = "mchip";
+      chip.textContent = m.a >= seg.start - 0.5 || i > 0 ? "⊘ off-topic" : "… off-topic";
+      p.append(chip, " ");
+    }
+    if (!m) allOff = false;
+    prevMark = m;
+    const s = document.createElement("span");
+    s.className = wordClass(w, m);
+    s.dataset.i = i;
+    s.textContent = w.w;
+    if (w.s === "auto") s.title = `Changed automatically by ${w.by}; ${modelName} had heard «${w.was}»`;
+    else if (w.by) s.title = `Confirmed by ${w.by}`;
+    else if (w.was) s.title = `You changed this; ${modelName} had heard «${w.was}»`;
+    p.append(s);
+    if (w.p) { const pm = document.createElement("span"); pm.className = "pm"; pm.textContent = w.p; p.append(pm); }
+  });
+  if (allOff) row.classList.add("all-off");
+  if (!seg.words.length) {
+    const e = document.createElement("span");
+    e.className = "empty";
+    e.textContent = "(empty)";
+    p.append(e);
+  }
+  row.append(ts, p);
+  return row;
+}
+function appendSegs(segs) {
+  const frag = document.createDocumentFragment();
+  computeSpeakers(segs);
+  for (const seg of segs) {
+    if (segById.has(seg.id)) { replaceSeg(seg); continue; }
+    doc.segments.push(seg);
+    segById.set(seg.id, seg);
+    const el = renderSeg(seg);
+    segEls.set(seg.id, el);
+    frag.append(el);
+  }
+  $("doc").append(frag);
+  idxDirty = true;
+}
+function replaceSeg(seg) {
+  const old = segById.get(seg.id);
+  if (!old || (old.rev ?? 0) > (seg.rev ?? 0)) return;  // not loaded yet, or stale copy
+  segById.set(seg.id, seg);
+  doc.segments[doc.segments.findIndex((s) => s.id === seg.id)] = seg;
+  const el = renderSeg(seg);
+  segEls.get(seg.id).replaceWith(el);
+  segEls.set(seg.id, el);
+  idxDirty = true;
+  nowEl = null;
+  if (sel && sel.seg === seg.id) {
+    if (sel.j > seg.words.length) closeDock(); else paintSel();
+  }
+}
+function rerenderSeg(seg) {   // e.g. after marks changed
+  const el = renderSeg(seg);
+  segEls.get(seg.id)?.replaceWith(el);
+  segEls.set(seg.id, el);
+  idxDirty = true;
+  nowEl = null;
+}
+function setCounts(c) {
+  for (const k of ["left", "total", "transcribing", "decoded", "marks", "auto", "confirmed", "undo"]) if (c[k] !== undefined) doc[k] = c[k];
+  $("undoBtn").disabled = !doc.undo;
+  $("undoBtn").title = doc.undo ? `Undo ${doc.undo.replace(/[⁨⁩]/g, "")} (Ctrl+Z)` : "Nothing to undo";
+  scheduleTlMarks();
+  const ac = $("autoCount");
+  // what is in the text now (an undone change no longer counts)
+  const items = autoItems(), changed = items.filter((x) => x.kind === "changed").length;
+  ac.classList.toggle("hidden", !items.length);
+  ac.textContent = `${changed} changed · ${items.length - changed} confirmed automatically ▾`;
+  renderChanges();
+  $("left").textContent = doc.left;
+  const done = doc.total ? (doc.total - doc.left) / doc.total : 1;
+  $("progress").style.width = (100 * Math.max(0, done)).toFixed(1) + "%";
+  $("next").disabled = doc.left === 0;
+  const live = `transcribing… ${fmtTime(doc.decoded)} of ${fmtTime(doc.duration)}`;
+  $("liveHead").textContent = live;
+  $("liveHead").classList.toggle("hidden", !doc.transcribing);
+  $("liveFoot").classList.toggle("hidden", !doc.transcribing);
+  $("liveFootText").textContent = `Transcribing… ${fmtTime(doc.decoded)} of ${fmtTime(doc.duration)}. New lines appear here as they are ready.`;
+  playerUI();
+  // paused at the end of what is transcribed so far: carry on once there is more
+  if (waitingForMore && main.currentTime < available() - 1) { waitingForMore = false; main.play().catch(() => {}); }
+}
+// A selection is words[i] of line `seg` up to (not including) words[j] of line `endSeg`
+// (the same line unless sel.multi). Line ids are their order in the transcript.
+function selWords(fn) {
+  if (!sel) return;
+  const endSeg = sel.multi ? sel.endSeg : sel.seg;
+  for (let s = sel.seg; s <= endSeg; s++) {
+    const seg = segById.get(s);
+    if (!seg) continue;
+    const to = s === endSeg ? sel.j : seg.words.length;
+    for (let k = s === sel.seg ? sel.i : 0; k < to; k++) fn(s, k, seg.words[k]);
+  }
+}
+function selTimes() {             // the selection as a time range [a, b)
+  const first = segById.get(sel.seg), last = segById.get(sel.multi ? sel.endSeg : sel.seg);
+  const a = first.words[sel.i].t - 0.001;
+  const b = sel.j < last.words.length ? last.words[sel.j].t - 0.001 : last.end;
+  return [Math.max(0, a), b];
+}
+function paintSel() {
+  document.querySelectorAll(".w.sel").forEach((e) => e.classList.remove("sel"));
+  selWords((s, k) => segEls.get(s)?.querySelector(`.w[data-i="${k}"]`)?.classList.add("sel"));
+}
+function selectRange(s1, i1, s2, i2) {   // from word i1 of line s1 to word i2 of line s2 (inclusive)
+  const anchor = { seg: s1, i: i1 };
+  if (s2 < s1 || (s2 === s1 && i2 < i1)) [s1, i1, s2, i2] = [s2, i2, s1, i1];
+  if (s1 === s2) {
+    select(s1, i1, i2 + 1, false, anchor.i);
+  } else {
+    sel = { multi: true, seg: s1, i: i1, endSeg: s2, j: i2 + 1, anchor: anchor.i, anchorSeg: anchor.seg };
+    awaitingNext = false;
+    paintSel();
+    openDock();
+  }
+}
+
+// ------------------------------------------------------------------ selection + dock
+function spanAt(seg, i) {
+  if (seg.words[i].s === "auto") {          // the whole automatic replacement
+    const was = seg.words[i].was;
+    let a = i, b = i + 1;
+    while (a > 0 && seg.words[a - 1].s === "auto" && seg.words[a - 1].was === was) a--;
+    while (b < seg.words.length && seg.words[b].s === "auto" && seg.words[b].was === was) b++;
+    return [a, b, false];
+  }
+  const u = seg.words[i].u;
+  if (u === undefined || markAt(seg.words[i].t)) return [i, i + 1, false];
+  let a = i, b = i + 1;
+  while (a > 0 && seg.words[a - 1].u === u) a--;
+  while (b < seg.words.length && seg.words[b].u === u) b++;
+  return [a, b, true];
+}
+function heardOf(s) { return segById.get(s.seg).words.slice(s.i, s.j).map((w) => w.w).join(" "); }
+function ruleOk(h) { return h.split(" ").length > 1 || h.length > 3; }
+
+function select(segId, i, j, unsure, anchor) {
+  sel = { seg: segId, i, j, unsure, anchor: anchor ?? i };
+  awaitingNext = false;
+  paintSel();
+  openDock();
+}
+function updateMarkButtons() {
+  let any = false;
+  selWords((s, k, w) => { if (!any && markAt(w.t)) any = true; });
+  $("unmarkBtn").classList.toggle("hidden", !any);
+}
+function openDock() {
+  $("dock").classList.toggle("multi", !!sel.multi);
+  updateMarkButtons();
+  // the player at the top moves to the selection (Space then plays from there)
+  cueMain(segById.get(sel.seg).words[sel.i].t - 0.5);
+  if (sel.multi) {                       // several lines: only marking (and playing) applies
+    let n = 0;
+    selWords(() => n++);
+    const [a, b] = selTimes();
+    $("dock").classList.remove("hidden");
+    $("dTime").textContent = `${fmtTime(a)} → ${fmtTime(b)}`;
+    $("dConf").textContent = "–";
+    $("dCount").textContent = `${n} words across ${sel.endSeg - sel.seg + 1} lines`;
+    altKey = null;
+    $("audio").pause();
+    if (document.activeElement === $("text")) $("text").blur();
+    return;
+  }
+  const seg = segById.get(sel.seg);
+  const words = seg.words.slice(sel.i, sel.j);
+  const heard = heardOf(sel);
+  $("dock").classList.remove("hidden");
+  const items = autoItems();
+  const k = items.findIndex((it) => it.seg === sel.seg && it.i <= sel.i && sel.i < it.j);
+  const item = k >= 0 ? items[k] : null;
+  $("autoNote").classList.toggle("hidden", !item);
+  if (item) {
+    $("autoPos").textContent = `${k + 1} of ${items.length}`;
+    $("autoPrev").onclick = () => openItem(items[(k - 1 + items.length) % items.length]);
+    $("autoNext").onclick = () => openItem(items[(k + 1) % items.length]);
+    const t = $("autoNoteText");
+    t.textContent = "";
+    if (item.kind === "changed") t.append(`Changed by ${item.by}; ${modelName} had heard `, bdi(item.was), ".");
+    else t.append(`Confirmed by ${item.by}.`);
+    $("autoUndo").classList.toggle("hidden", item.kind !== "changed");
+    $("autoUndo").onclick = () => undoAuto(item);
+  }
+  renderChanges();
+  $("dTime").textContent = fmtTime(words[0].t);
+  const conf = Math.min(...words.map((w) => w.c));
+  // not the main model's words (yours, or another model's): no confidence or "heard by" for them
+  const notHeard = words.every((w) => w.s === "edited" || w.s === "blank" || w.s === "auto");
+  $("dConf").textContent = notHeard ? "–" : Math.round(conf * 100) + "%";
+  if (modelName !== "the main model") $("dModelWrap").classList.toggle("hidden", notHeard);
+  $("dCount").textContent = sel.unsure ? "unsure part" : (words.length > 1 ? `${words.length} words selected` : "");
+  $("keep").classList.toggle("hidden", !sel.unsure);
+  $("kwFile").textContent = doc.kw_file || "keywords.txt";
+  const input = $("text");
+  input.value = heard;
+  document.querySelector('input[name=add][value=""]').checked = true;
+  const ok = ruleOk(heard);
+  document.querySelector('input[name=add][value=rule]').disabled = !ok;
+  $("ruleLabel").classList.toggle("disabled", !ok);
+  updateRulePreview();
+  input.focus();
+  input.select();
+  const selEl = segEls.get(sel.seg).querySelector(`.w[data-i="${sel.i}"]`);
+  if (selEl) {   // bring the selection to the middle of the visible text (our own glide)
+    const [top, bottom] = visibleArea();
+    const r = selEl.getBoundingClientRect();
+    if (r.top < top + 10 || r.bottom > bottom - 10) glideBy(r.top - (top + bottom) / 2);
+  }
+  // you changed these words (or left them blank): what the model had heard, and a way back
+  const was = (words.find((w) => (w.s === "edited" || w.s === "blank") && w.was) || {}).was;
+  $("origNote").classList.toggle("hidden", !was);
+  if (was) {
+    const t = $("origText");
+    t.textContent = "";
+    t.append(`You changed this; ${modelName} had heard `, bdi(was), ".");
+    $("origBack").onclick = () => { $("text").value = was; edit("save"); };
+  }
+  updateReplAll();
+  const end = sel.j < seg.words.length ? seg.words[sel.j].t : seg.end;
+  const pad = CLIP_PAD;
+  playRange(words[0].t - pad, end + pad);
+  $("alts").textContent = "";
+  $("alts").classList.toggle("hidden", !doc.alts);
+  if (doc.alts) loadAlts({ ...sel });
+}
+
+// ------------------------------------------------------------------ replace all
+// Persian text compared loosely (as the server does): one spelling of ی ک ا, no short vowels, half-space = space
+const FA_MAP = { "ي": "ی", "ى": "ی", "ك": "ک", "ة": "ه", "ۀ": "ه", "أ": "ا", "إ": "ا", "ٱ": "ا" };
+function normWords(t) {
+  return t.replace(/[يىكةۀأإٱ]/g, (c) => FA_MAP[c]).replace(/[ً-ْـ]/g, "")
+          .replace(/[‌.,;:!?؟،؛«»()[\]"'…]/g, " ").toLowerCase().split(/\s+/).filter(Boolean);
+}
+function countWhole(phrase) {     // whole-word occurrences in this transcript (what "Replace all" changes)
+  const want = normWords(phrase);
+  if (!want.length || !doc) return 0;
+  let n = 0;
+  for (const seg of doc.segments) {
+    const flat = [], owner = [];
+    seg.words.forEach((w, k) => normWords(w.w).forEach((p) => { flat.push(p); owner.push(k); }));
+    for (let k = 0; k + want.length <= flat.length;) {
+      const e = k + want.length;
+      if (want.every((x, d) => flat[k + d] === x) && (k === 0 || owner[k - 1] !== owner[k])
+          && (e === flat.length || owner[e] !== owner[e - 1])) { n++; k = e; } else k++;
+    }
+  }
+  return n;
+}
+function updateReplAll() {
+  const b = $("replAll");
+  const n = sel && !sel.multi ? countWhole(heardOf(sel)) : 0;
+  b.classList.toggle("hidden", n < 2);
+  if (n >= 2) b.textContent = `Replace all ${n} in this recording`;
+  b.onclick = () => replaceAll(heardOf(sel), $("text").value.trim(), n);
+}
+async function replaceAll(find, text, n) {
+  if (!text || normWords(text).join(" ") === normWords(find).join(" ")) {
+    $("text").focus(); return toast("Type the right words first.");
+  }
+  if (!confirm(`Replace all ${n ?? countWhole(find)} occurrences of «${find}» with «${text}» in this recording?\n(Undo with Ctrl+Z.)`)) return;
+  try {
+    const res = await api("/replace_all", { find, text });
+    for (const s of res.segments) replaceSeg(s);
+    setCounts(res);
+    toast(`Replaced ${res.n} occurrence${res.n === 1 ? "" : "s"}.`);
+    if (sel) closeDock();
+    if (!$("searchPanel").classList.contains("hidden")) runSearch();
+  } catch (e) { toast("Could not replace: " + e.message); }
+}
+
+// ------------------------------------------------------------------ other models' guesses
+let altKey = null, altTimer = null;
+const selKey = (s) => `${s.seg}:${s.i}:${s.j}`;
+const normFa = (t) => t.replace(/ي/g, "ی").replace(/ك/g, "ک").replace(/[‌ً-ْـ؟?.،,!]/g, "").replace(/\s+/g, " ").trim();
+async function loadAlts(s) {
+  const key = selKey(s);
+  altKey = key;
+  clearTimeout(altTimer);
+  try {
+    const r = await api(`/alts?seg=${s.seg}&i=${s.i}&j=${s.j}`);
+    if (altKey !== key || !sel || selKey(sel) !== key) return;
+    renderAlts(r.models || [], s);
+    if ((r.models || []).some((m) => m.status !== "done" && !m.status.startsWith("unavailable"))) {
+      altTimer = setTimeout(() => loadAlts(s), 800);
+    }
+  } catch (e) {
+    if (altKey === key) altTimer = setTimeout(() => loadAlts(s), 1500);
+  }
+}
+function renderAlts(models, s) {
+  const box = $("alts");
+  box.textContent = "";
+  const heard = normFa(heardOf(s));
+  const pct = (c) => Math.round(c * 100) + "%";
+  models.forEach((m) => {
+    const row = document.createElement("div");
+    row.className = "alt";
+    const name = document.createElement(m.url ? "a" : "span");
+    name.className = "alt-name";
+    name.title = m.about || m.note || "";
+    name.textContent = m.name;
+    if (m.url) { name.href = m.url; name.target = "_blank"; name.rel = "noopener"; }
+    row.append(name);
+    if (m.status !== "done") {
+      const st = document.createElement("span");
+      st.className = "alt-status";
+      st.textContent = m.status === "waiting" ? "queued…" : m.status;
+      row.append(st);
+    } else if (!m.words.length) {
+      const st = document.createElement("span");
+      st.className = "alt-status";
+      st.textContent = "heard nothing in this clip";
+      row.append(st);
+    } else {
+      const [lo, hi] = m.match || [0, 0];
+      const guess = m.match ? m.words.slice(lo, hi).join(" ") : "";
+      if (m.match && guess) {
+        const chip = document.createElement("button");
+        chip.type = "button";
+        chip.className = "chip" + (normFa(guess) === heard ? " same" : "");
+        const conf = m.conf ? m.conf.slice(lo, hi) : null;
+        let tip = (normFa(guess) === heard ? "Same as the current text." : "Click to use this.");
+        if (conf && conf.length) {
+          tip += `\n${m.name}'s confidence: ${pct(Math.min(...conf))}` +
+                 (conf.length > 1 ? " (its least sure word)\n" + m.words.slice(lo, hi).map((w, i) => `${w}: ${pct(conf[i])}`).join("\n") : "");
+        }
+        chip.title = tip;
+        chip.textContent = guess;
+        chip.onclick = () => { $("text").value = guess; updateRulePreview(); $("text").focus(); };
+        row.append(chip);
+        if (conf && conf.length) {
+          const c = document.createElement("span");
+          c.className = "alt-conf" + (Math.min(...conf) < 0.5 ? " low" : "");
+          c.textContent = pct(Math.min(...conf));
+          c.title = chip.title;
+          row.append(c);
+        }
+      } else {
+        const st = document.createElement("span");
+        st.className = "alt-status";
+        st.textContent = m.match ? "nothing in this spot" : "couldn't line it up";
+        row.append(st);
+      }
+      const full = document.createElement("span");
+      full.className = "alt-full";
+      full.title = `What ${m.name} heard in the whole clip` + (m.conf ? " (hover a word for its confidence)" : "");
+      m.words.forEach((w, i) => {
+        if (i) full.append(" ");
+        const el = document.createElement(m.match && i >= lo && i < hi ? "mark" : "span");
+        el.textContent = w;
+        if (m.conf) el.title = `${w}: ${pct(m.conf[i])}`;
+        full.append(el);
+      });
+      if (!m.match || m.words.length > hi - lo) row.append(full);
+    }
+    box.append(row);
+  });
+}
+
+function closeDock() {
+  altKey = null;
+  clearTimeout(altTimer);
+  sel = null;
+  paintSel();
+  $("dock").classList.add("hidden");
+  $("audio").pause();
+  if ($("dock").contains(document.activeElement)) document.activeElement.blur();  // Space plays again
+}
+function updateRulePreview() {
+  if (!sel) return;
+  const heard = heardOf(sel);
+  const typed = $("text").value.trim() || "…";
+  const p = $("rulePreview");
+  p.textContent = "";
+  if (ruleOk(heard)) p.append("(always change ", bdi(heard), " → ", bdi(typed), ")");
+  else p.append("(not possible: ", bdi(heard), " is too short)");
+}
+
+// ------------------------------------------------------------------ full player
+const main = $("main");
+let wordIdx = [];          // [[time, segment id, word index]] in time order
+let idxDirty = true;
+let nowEl = null;          // word highlighted as "now playing"
+let waitingForMore = false;
+let lastUserScroll = 0;
+let dragging = false;
+const PLAY_ICON = '<path d="M8 5v14l11-7z" fill="currentColor"/>';
+const PAUSE_ICON = '<path d="M7 5h4v14H7zM13 5h4v14h-4z" fill="currentColor"/>';
+
+function available() {     // seconds that can be played: what is transcribed so far
+  if (!doc) return 0;
+  return doc.transcribing ? Math.max(0, doc.decoded) : doc.duration;
+}
+function buildIdx() {
+  wordIdx = [];
+  for (const seg of doc.segments) seg.words.forEach((w, i) => wordIdx.push([w.t, seg.id, i]));
+  wordIdx.sort((a, b) => a[0] - b[0]);
+  idxDirty = false;
+}
+function wordAt(t) {
+  if (!doc) return null;
+  if (idxDirty) buildIdx();
+  let lo = 0, hi = wordIdx.length - 1, k = -1;
+  while (lo <= hi) {
+    const m = (lo + hi) >> 1;
+    if (wordIdx[m][0] <= t + 0.05) { k = m; lo = m + 1; } else hi = m - 1;
+  }
+  if (k < 0) return null;
+  const seg = segById.get(wordIdx[k][1]);
+  if (!seg || t > seg.end + 0.2) return null;   // in a pause between lines
+  return wordIdx[k];
+}
+function playerUI() {
+  if (!doc) return;
+  const dur = doc.duration || 1;
+  const t = main.currentTime || 0;
+  $("cur").textContent = fmtTime(t);
+  $("dur").textContent = fmtTime(doc.duration);
+  $("tlAvail").style.width = (100 * Math.min(1, available() / dur)).toFixed(2) + "%";
+  $("tlPlayed").style.width = (100 * Math.min(1, t / dur)).toFixed(2) + "%";
+  $("tlKnob").style.left = (100 * Math.min(1, t / dur)).toFixed(2) + "%";
+}
+function updateNow() {
+  const hit = wordAt(main.currentTime);
+  const el = hit ? segEls.get(hit[1])?.querySelector(`.w[data-i="${hit[2]}"]`) : null;
+  if (el === nowEl) return;
+  nowEl?.classList.remove("now");
+  nowEl = el;
+  if (!el) return;
+  el.classList.add("now");
+}
+
+// Follow: keep the playing word about a third of the way down the visible text, moving
+// smoothly as it goes to the next line. Scrolling yourself pauses this for a few seconds
+// (or until "Back to the playing word" is clicked).
+const FOLLOW_PAUSE = 6000;
+let autoScrollUntil = 0;   // scroll events before this are ours, not the user's
+function followSuspended() { return Date.now() - lastUserScroll < FOLLOW_PAUSE; }
+function visibleArea() {
+  const top = document.querySelector("header").getBoundingClientRect().bottom;
+  const bottom = innerHeight - ($("dock").classList.contains("hidden") ? 0 : $("dock").offsetHeight);
+  return [top, Math.max(top + 80, bottom)];
+}
+function follow(force = false) {
+  const el = nowEl;
+  if (!el || !el.isConnected) return;
+  if (force) lastUserScroll = 0;
+  else if (followSuspended()) return showBackButton(true);
+  if (!force && glide) return;                    // still moving from last time
+  const [top, bottom] = visibleArea();
+  const target = top + (bottom - top) * 0.3;
+  const delta = el.getBoundingClientRect().top - target;
+  showBackButton(false);
+  if (Math.abs(delta) < 6) return;
+  if (Math.abs(delta) > innerHeight * 1.5) {      // a jump: no point animating
+    clearInterval(glide); glide = null;
+    autoScrollUntil = Date.now() + 300;
+    window.scrollBy(0, delta);
+  } else {
+    glideBy(delta);
+  }
+}
+// Our own short glide (timer-driven, so it behaves the same in every browser and tab).
+let glide = null;
+function glideBy(delta, ms = 260) {
+  clearInterval(glide);
+  const start = scrollY, end = Math.max(0, start + delta), t0 = performance.now();
+  autoScrollUntil = Date.now() + ms + 250;
+  glide = setInterval(() => {
+    const k = Math.min(1, (performance.now() - t0) / ms);
+    window.scrollTo(0, start + (end - start) * (1 - Math.pow(1 - k, 3)));
+    if (k >= 1) { clearInterval(glide); glide = null; }
+  }, 16);
+}
+function showBackButton(show) {
+  const b = $("backToNow");
+  show = show && !main.paused;
+  b.classList.toggle("hidden", !show);
+  if (show) b.style.bottom = (($("dock").classList.contains("hidden") ? 0 : $("dock").offsetHeight) + 16) + "px";
+}
+function userScrolled() {
+  lastUserScroll = Date.now();
+  if (!main.paused) showBackButton(true);
+}
+window.addEventListener("scroll", () => { if (Date.now() > autoScrollUntil) userScrolled(); }, { passive: true });
+for (const ev of ["wheel", "touchmove"]) {
+  window.addEventListener(ev, () => { clearInterval(glide); glide = null; userScrolled(); }, { passive: true });
+}
+
+function frame() {
+  // "hide off-topic" also skips those parts while playing
+  if ($("hideOff").checked && !main.paused) {
+    const m = markAt(main.currentTime);
+    if (m) main.currentTime = Math.min(m.b + 0.01, available());
+  }
+  playerUI();
+  updateNow();
+  if (!main.paused) follow();
+  if (doc && doc.transcribing && !main.paused && main.currentTime >= available() - 0.3) {
+    main.pause();               // reached the end of what is transcribed so far
+    waitingForMore = true;
+    toast("Waiting for the transcription to catch up…");
+  }
+}
+let frameTimer = null;   // a timer rather than requestAnimationFrame: it keeps going in a background tab
+function cueMain(t) {           // move the player without playing or scrolling
+  if (!doc) return;
+  main.currentTime = Math.max(0, Math.min(t, Math.max(0, available() - 0.3)));
+  playerUI();
+  updateNow();
+}
+function seek(t, play) {
+  if (!doc) return;
+  const max = Math.max(0, available() - 0.3);
+  if (t > max && doc.transcribing) toast("That part isn't transcribed yet.");
+  main.currentTime = Math.max(0, Math.min(t, max));
+  playerUI();
+  updateNow();
+  follow(true);                 // show where we jumped to
+  if (play) playMain();
+}
+function playMain() {
+  $("audio").pause();           // the editor's clip player
+  waitingForMore = false;
+  if (main.currentTime >= available() - 0.3 && !doc.transcribing) main.currentTime = 0;
+  main.play().then(() => { updateNow(); follow(true); }).catch(() => toast("Click ▶ to start playback."));
+}
+function togglePlay() { main.paused ? playMain() : main.pause(); }
+function setSpeed(v) {
+  v = Math.min(3, Math.max(0.5, v));
+  main.playbackRate = v;
+  $("speed").value = String(v);
+  try { localStorage.setItem("review.speed", String(v)); } catch (e) { /* private mode */ }
+}
+function tlTime(e) {
+  const r = $("tl").getBoundingClientRect();
+  return Math.max(0, Math.min(1, (e.clientX - r.left) / r.width)) * (doc ? doc.duration : 0);
+}
+
+main.addEventListener("play", () => {
+  $("ppIcon").innerHTML = PAUSE_ICON; $("pp").ariaLabel = "Pause";
+  clearInterval(frameTimer); frameTimer = setInterval(frame, 100);
+});
+main.addEventListener("pause", () => {
+  $("ppIcon").innerHTML = PLAY_ICON; $("pp").ariaLabel = "Play";
+  clearInterval(frameTimer); playerUI(); showBackButton(false);
+});
+main.addEventListener("seeked", () => { playerUI(); updateNow(); });
+$("pp").onclick = togglePlay;
+$("speed").onchange = () => setSpeed(Number($("speed").value));
+$("tl").addEventListener("pointerdown", (e) => {
+  dragging = true;
+  $("tl").setPointerCapture(e.pointerId);
+  seek(tlTime(e));
+});
+$("tl").addEventListener("pointermove", (e) => {
+  const t = tlTime(e);
+  const tip = $("tlTip");
+  tip.classList.remove("hidden");
+  tip.textContent = fmtTime(t) + (doc && doc.transcribing && t > available() ? " · not transcribed yet" : "");
+  tip.style.left = (100 * t / ((doc && doc.duration) || 1)).toFixed(2) + "%";
+  if (dragging) seek(t);
+});
+$("tl").addEventListener("pointerup", () => { dragging = false; });
+$("tl").addEventListener("pointerleave", () => { if (!dragging) $("tlTip").classList.add("hidden"); });
+$("backToNow").onclick = () => follow(true);
+try { const v = Number(localStorage.getItem("review.speed")); if (v) setSpeed(v); } catch (e) { /* private mode */ }
+
+// ------------------------------------------------------------------ audio
+let lastRange = null;
+async function playRange(a, b) {
+  lastRange = [a, b];
+  const audio = $("audio");
+  try {
+    const r = await fetch(q(`/clip.wav?a=${Math.max(0, a).toFixed(2)}&b=${b.toFixed(2)}`), { cache: "no-store" });
+    if (!r.ok) return;
+    const blob = await r.blob();
+    if (lastRange[0] !== a || lastRange[1] !== b) return;
+    if (clipUrl) URL.revokeObjectURL(clipUrl);
+    clipUrl = URL.createObjectURL(blob);
+    audio.src = clipUrl;
+    await replay();
+  } catch (e) { /* ignore */ }
+}
+async function replay() {
+  const a = $("audio");
+  if (!a.src) return;
+  main.pause();                 // one thing playing at a time
+  a.playbackRate = $("slow").checked ? 0.75 : 1;
+  a.currentTime = 0;
+  try { await a.play(); $("playHint").classList.add("hidden"); }
+  catch (e) { $("playHint").classList.remove("hidden"); }
+}
+
+// ------------------------------------------------------------------ navigation + edits
+function nextUnsure(fromSeg, fromI) {
+  // first unsure part at or after (fromSeg, fromI) in document order, wrapping around
+  const order = doc.segments;
+  if (!order.length) return null;
+  let start = fromSeg === undefined ? 0 : order.findIndex((s) => s.id === fromSeg);
+  if (start < 0) start = 0;
+  for (let n = 0; n <= order.length; n++) {
+    const seg = order[(start + n) % order.length];
+    const from = n === 0 && fromI !== undefined ? fromI : 0;
+    for (let i = from; i < seg.words.length; i++) {
+      if (seg.words[i].u !== undefined && !markAt(seg.words[i].t)) return [seg.id, ...spanAt(seg, i)];
+    }
+  }
+  return null;
+}
+function goNext(fromSeg, fromI, quiet = false) {
+  const n = nextUnsure(fromSeg, fromI);
+  if (n) return select(n[0], n[1], n[2], true);
+  closeDock();
+  if (doc.transcribing) {
+    awaitingNext = true;
+    if (!quiet) toast("All caught up. The next unsure part opens by itself as soon as it is transcribed.");
+  } else if (!quiet) {
+    toast("No unsure parts left. Press “Finish & save subtitles” when you're done.");
+  }
+}
+async function markSelection(on) {     // on: false unmarks
+  if (!sel || busy) return;
+  const [a, b] = selTimes();
+  const wasUnsure = sel.unsure, from = [sel.seg, sel.i];
+  busy = true;
+  try {
+    const res = await api("/mark", { a, b, on });
+    setCounts(res);
+    for (const seg of doc.segments) if (seg.end >= a - 1 && seg.start <= b + 1) rerenderSeg(seg);
+    toast(on ? `Marked ${fmtTime(a)}–${fmtTime(b)} off-topic: left out of the lesson-only files`
+             : `Unmarked ${fmtTime(a)}–${fmtTime(b)}`);
+    if (on && wasUnsure) goNext(...from); else closeDock();
+  } catch (e) {
+    toast("Could not mark: " + e.message);
+  } finally {
+    busy = false;
+  }
+}
+
+async function edit(action) {
+  if (!sel || busy || sel.multi) return;
+  const text = $("text").value.trim();
+  if (action === "save") {
+    if (!text) { $("text").focus(); return toast("Type the words, or use “Delete words”."); }
+    action = text === heardOf(sel) ? "keep" : "replace";
+  }
+  const add = document.querySelector("input[name=add]:checked").value || null;
+  const s = sel;
+  busy = true;
+  try {
+    const res = await api("/edit", { seg: s.seg, i: s.i, j: s.j, action, text, add: action === "replace" ? add : null });
+    for (const seg of res.segments) replaceSeg(seg);
+    setCounts(res);
+    if (res.notice) toast(res.notice);
+    if (s.unsure) goNext(s.seg, s.i);
+    else closeDock();
+  } catch (e) {
+    toast("Could not save: " + e.message);
+  } finally {
+    busy = false;
+  }
+}
+
+// ------------------------------------------------------------------ finish
+function showFinish() {
+  const acts = $("finishActions");
+  acts.textContent = "";
+  const btn = (label, cls, fn) => {
+    const b = document.createElement("button");
+    b.type = "button"; b.textContent = label; if (cls) b.className = cls; b.onclick = fn;
+    acts.append(b); return b;
+  };
+  btn("Cancel", "", () => $("finishModal").classList.add("hidden"));
+  if (doc.transcribing || doc.left > 0) {
+    $("finishText").textContent = doc.transcribing
+      ? `Transcription is still running (${fmtTime(doc.decoded)} of ${fmtTime(doc.duration)}). ` +
+        "The subtitles are saved when it completes. Unsure parts you haven't reviewed, including the ones still to come, should be:"
+      : `${doc.left} unsure part${doc.left > 1 ? "s are" : " is"} still highlighted. What should happen to them?`;
+    const keep = btn("Keep them as heard", doc.blank_default ? "" : "primary", () => finish("keep"));
+    const blank = btn("Leave them blank […]", doc.blank_default ? "primary" : "", () => finish("blank"));
+    (doc.blank_default ? blank : keep).focus();
+  } else {
+    $("finishText").textContent = "All unsure parts are reviewed. The subtitles will be written now.";
+    btn("Save", "primary", () => finish("keep")).focus();
+  }
+  $("finishModal").classList.remove("hidden");
+}
+async function finish(rest) {
+  $("finishModal").classList.add("hidden");
+  try {
+    await api("/finish", { rest });
+    closeDock();
+    doneFileId = fileId;
+    doc = null;
+    showWaiting("Saving subtitles…");
+  } catch (e) { toast("Could not finish: " + e.message); }
+}
+
+// ------------------------------------------------------------------ loading + polling
+function showWaiting(text, spinning = true, progress = null) {
+  // a known fraction shows as a bar (and no spinner); otherwise the spinner says "working"
+  const known = typeof progress === "number";
+  $("waitBarBox").classList.toggle("hidden", !known);
+  if (known) $("waitBar").style.width = (100 * Math.max(0, Math.min(1, progress))).toFixed(1) + "%";
+  spinning = spinning && !known;
+  $("changesPanel").classList.add("hidden");
+  $("searchPanel").classList.add("hidden");
+  $("review").classList.add("hidden");
+  $("dock").classList.add("hidden");
+  document.body.classList.remove("has-doc");
+  ["count", "next", "finish", "liveHead", "playerRow", "autoCount"].forEach((id) => $(id).classList.add("hidden"));
+  if (main.src) { main.pause(); main.removeAttribute("src"); main.load(); }
+  waitingForMore = false;
+  $("waiting").classList.remove("hidden");
+  $("spinner").classList.toggle("hidden", !spinning);
+  $("waitText").textContent = text;
+}
+async function loadDoc() {
+  const d = await api("/doc");
+  if (!d.segments) return;
+  const segs = d.segments;
+  doc = { ...d, segments: [] };
+  fileId = d.file_id;
+  changeSeq = d.change_seq || 0;
+  segById = new Map();
+  segEls = new Map();
+  spkOf = new Map();
+  $("doc").textContent = "";
+  $("waiting").classList.add("hidden");
+  if (!browserOpen) $("review").classList.remove("hidden");
+  $("fsBack").classList.remove("hidden");
+  document.body.classList.add("has-doc");
+  ["count", "next", "finish", "playerRow"].forEach((id) => $(id).classList.remove("hidden"));
+  if (main.getAttribute("data-file") !== String(fileId)) {
+    main.setAttribute("data-file", String(fileId));
+    main.src = q(`/audio.wav?f=${fileId}`);
+    main.playbackRate = Number($("speed").value) || 1;
+  }
+  nowEl = null;
+  closeDock();
+  appendSegs(segs);
+  setCounts(d);
+  placeSent = d.place || 0;
+  if (pendingJump && pendingJump.path === currentPath) {       // opened from a search result
+    const j = pendingJump; pendingJump = null;
+    return jumpTo(j.line, j.t, undefined, undefined, j.query);
+  }
+  if (d.place > 2 && d.place < available() - 1) {             // carry on where you were last time
+    cueMain(d.place);
+    follow(true);
+    return toast(`Carrying on where you were: ${fmtTime(d.place)}. Press N for the next unsure part from here.`);
+  }
+  goNext(undefined, undefined, true);
+}
+async function loadChanges() {     // lines the other models settled by themselves
+  const d = await api(`/changes?since=${changeSeq}`);
+  if (!doc) return;
+  changeSeq = d.seq;
+  for (const seg of d.segments) replaceSeg(seg);
+  setCounts(d);
+}
+// ------------------------------------------------------------------ automatic changes list
+function autoItems() {            // every part the other models changed or confirmed, in order
+  const items = [];
+  if (!doc) return items;
+  for (const seg of doc.segments) {
+    let i = 0;
+    while (i < seg.words.length) {
+      const w = seg.words[i];
+      let j = i + 1, kind = null;
+      if (w.s === "auto") {
+        kind = "changed";
+        j = spanAt(seg, i)[1];
+      } else if (w.s === "ok" && w.by) {
+        kind = "confirmed";
+        while (j < seg.words.length && seg.words[j].s === "ok" && seg.words[j].by === w.by) j++;
+      }
+      if (kind) items.push({ kind, seg: seg.id, i, j, t: w.t, by: w.by, was: w.was,
+                             now: seg.words.slice(i, j).map((x) => x.w).join(" ") });
+      i = j;
+    }
+  }
+  return items;
+}
+function openItem(it) { select(it.seg, it.i, it.j, false, it.i); }
+async function undoAuto(it) {     // put back what the main model had heard
+  if (busy) return;
+  busy = true;
+  try {
+    const res = await api("/edit", { seg: it.seg, i: it.i, j: it.j, action: "replace", text: it.was, add: null });
+    for (const seg of res.segments) replaceSeg(seg);
+    setCounts(res);
+    toast(`Put back «${it.was}»`);
+    if (sel && sel.seg === it.seg) closeDock();
+  } catch (e) {
+    toast("Could not undo: " + e.message);
+  } finally {
+    busy = false;
+  }
+}
+function renderChanges() {
+  const panel = $("changesPanel");
+  if (panel.classList.contains("hidden") || !doc) return;
+  const items = autoItems();
+  const changed = items.filter((x) => x.kind === "changed").length;
+  $("cpSummary").textContent = `${changed} changed · ${items.length - changed} confirmed`;
+  const list = $("cpList");
+  list.textContent = "";
+  if (!items.length) {
+    const e = document.createElement("div");
+    e.className = "fs-empty";
+    e.textContent = doc.left > 0 ? "Nothing yet: the other models are still working through the unsure parts." : "Nothing was settled automatically.";
+    list.append(e);
+  }
+  for (const it of items) {
+    const row = document.createElement("div");
+    row.className = "cp-row" + (sel && sel.seg === it.seg && it.i <= sel.i && sel.i < it.j ? " current" : "");
+    const time = document.createElement("span"); time.className = "cp-time"; time.textContent = fmtTime(it.t);
+    const text = document.createElement("span"); text.className = "cp-text";
+    if (it.kind === "changed") {
+      const was = document.createElement("span"); was.className = "was"; was.textContent = it.was;
+      const now = document.createElement("span"); now.className = "now"; now.textContent = it.now;
+      text.append(was, " ← ", now);     // right to left: «was», then what it became
+    } else {
+      const ok = document.createElement("span"); ok.className = "ok"; ok.textContent = "✓ " + it.now;
+      text.append(ok);
+    }
+    const by = document.createElement("span"); by.className = "cp-by"; by.textContent = it.by;
+    row.append(time, text, by);
+    if (it.kind === "changed") {
+      const undo = document.createElement("button");
+      undo.type = "button"; undo.textContent = "Undo"; undo.title = `Put back «${it.was}»`;
+      undo.onclick = (e) => { e.stopPropagation(); undoAuto(it); };
+      row.append(undo);
+    }
+    row.onclick = () => openItem(it);
+    list.append(row);
+  }
+}
+function toggleChanges(show) {
+  const panel = $("changesPanel");
+  show = show ?? panel.classList.contains("hidden");
+  panel.classList.toggle("hidden", !show);
+  if (show) {
+    panel.style.top = (document.querySelector("header").getBoundingClientRect().bottom + 8) + "px";
+    renderChanges();
+  }
+}
+async function loadMore() {
+  const from = doc.segments.length;
+  const d = await api(`/doc?from=${from}`);
+  if (!d.segments || d.file_id !== fileId || !doc) return;
+  appendSegs(d.segments);
+  setCounts(d);
+  if (awaitingNext && !sel && main.paused) {   // don't interrupt the player
+    const n = nextUnsure(d.segments.length ? d.segments[0].id : undefined, 0);
+    if (n && doc.segments.findIndex((s) => s.id === n[0]) >= from) select(n[0], n[1], n[2], true);
+  }
+}
+async function poll() {
+  if (finished) return;
+  let s;
+  try { s = await api("/state"); }
+  catch (e) {
+    finished = true;
+    return showWaiting("The transcriber has finished or was closed. You can close this tab.", false);
+  }
+  currentPath = s.reviewing ? s.path : "";
+  const title = s.browsing && !s.reviewing ? "Recordings" : (s.file || "Goosh-o-Ghalam");
+  $("file").textContent = title;
+  if (s.model && $("modelTag").textContent !== "Model: " + s.model) {   // the model making the transcript
+    $("modelTag").textContent = "Model: " + s.model;
+    $("modelTag").title = s.model_about || "";
+    if (s.model_url) $("modelTag").href = s.model_url;
+    $("modelTag").classList.remove("hidden");
+    $("dModel").title = s.model_about || "";
+    if (s.model_url) $("dModel").href = s.model_url;
+    $("dModel").textContent = s.model;
+    modelName = s.model;
+    $("dModelWrap").classList.remove("hidden");
+  }
+  document.title = s.reviewing && s.file ? `${s.file} · Goosh-o-Ghalam` : "Goosh-o-Ghalam";
+  if (s.done) {
+    finished = true;
+    $("progress").style.width = "100%";
+    $("browser").classList.add("hidden");
+    $("quitBtn").classList.add("hidden");
+    return showWaiting((s.status || "Finished.").trim() + "\nYou can close this tab.", false);
+  }
+  showJob(s);
+  try {
+    if (s.reviewing && s.file_id !== doneFileId) {
+      if (!doc || s.file_id !== fileId) { await loadDoc(); docRev = s.doc_rev; }
+      else if (s.doc_rev > docRev) { docRev = s.doc_rev; await refreshAll(); }
+      else if (s.lines > doc.segments.length) await loadMore();
+      else setCounts({ transcribing: s.transcribing, decoded: s.decoded });
+      if (doc && s.change_seq > changeSeq) await loadChanges();
+    } else if (s.browsing) {      // nothing open: show the file browser
+      doc = null;
+      if (!browserOpen) openBrowser(s.folder, true);
+      $("fsStatus").textContent = s.status && s.status !== "Choose a recording" ? s.status : "";
+      $("fsModels").textContent = altsSetupText(s.alts_status);
+    } else {
+      doc = null;
+      const prog = s.reviewing && s.transcribing && s.duration
+        ? `\nTranscribed ${fmtTime(s.decoded)} of ${fmtTime(s.duration)}` : "";
+      showWaiting((s.status || "Working…") + prog, true, s.progress);
+    }
+  } catch (e) { /* try again on the next poll */ }
+  setTimeout(poll, 500);
+}
+
+// "Second opinions: Nava – downloading 35% of 1.6 GB… · Vosk – ready" (only while not all ready)
+function altsSetupText(st) {
+  const parts = Object.entries(st || {});
+  if (!parts.length || parts.every(([, v]) => v === "ready")) return "";
+  return "Second-opinion models: " + parts.map(([n, v]) => `${n} – ${v === "waiting" ? "waiting to set up" : v}`).join(" · ");
+}
+
+// ------------------------------------------------------------------ file browser
+let browserOpen = false;
+let fsPath = "";
+function fmtSize(n) { return n > 1e9 ? (n / 1e9).toFixed(1) + " GB" : (n / 1e6).toFixed(0) + " MB"; }
+function statusBadge(f) {
+  const b = document.createElement("span");
+  b.className = "badge " + f.state;
+  b.textContent = { new: "not started", partial: `transcribed to ${fmtTime(f.until)}`,
+                    transcribed: "transcribed", done: "subtitles saved" }[f.state] || f.state;
+  if (f.edits) b.textContent += ` · ${f.edits} line${f.edits > 1 ? "s" : ""} edited`;
+  if (f.queue) {
+    b.textContent += f.queue === "now" ? " · transcribing in the background…" : " · in the queue";
+    b.classList.add("partial");
+  }
+  return b;
+}
+async function openBrowser(path, nothingOpen = false) {
+  $("changesPanel").classList.add("hidden");
+  $("searchPanel").classList.add("hidden");
+  browserOpen = true;
+  ["review", "waiting", "dock"].forEach((id) => $(id).classList.add("hidden"));
+  if (nothingOpen) {
+    document.body.classList.remove("has-doc");
+    ["count", "next", "finish", "liveHead", "playerRow", "autoCount"].forEach((id) => $(id).classList.add("hidden"));
+  }
+  $("browser").classList.remove("hidden");
+  $("fsBack").classList.toggle("hidden", !doc);
+  await loadFolder(path ?? fsPath);
+}
+function closeBrowser() {
+  if (!doc) return;
+  browserOpen = false;
+  $("browser").classList.add("hidden");
+  $("review").classList.remove("hidden");
+  if (sel) $("dock").classList.remove("hidden");
+}
+async function loadFolder(path) {
+  let d;
+  try { d = await api(`/fs?path=${encodeURIComponent(path || "")}`); }
+  catch (e) { return toast("Can't open that folder: " + e.message); }
+  fsPath = d.path;
+  $("fsPath").value = d.path;
+  $("fsUp").disabled = !d.parent;
+  $("fsUp").onclick = () => d.parent && loadFolder(d.parent);
+  const drives = $("fsDrives");
+  drives.textContent = "";
+  for (const dr of d.drives) {
+    const b = document.createElement("button");
+    b.type = "button"; b.textContent = dr; b.onclick = () => loadFolder(dr);
+    drives.append(b);
+  }
+  const list = $("fsList");
+  list.textContent = "";
+  const row = (icon, name, extra, onclick, current) => {
+    const r = document.createElement("div");
+    r.className = "fs-row" + (current ? " current" : "");
+    const i = document.createElement("span"); i.className = "fs-icon"; i.textContent = icon;
+    const n = document.createElement("span"); n.className = "fs-name"; n.append(bdi(name));
+    r.append(i, n, ...extra);
+    r.onclick = onclick;
+    list.append(r);
+  };
+  for (const name of d.dirs) row("📁", name, [], () => loadFolder(d.path.replace(/[\\/]$/, "") + (d.path.includes("\\") ? "\\" : "/") + name));
+  for (const f of d.files) {
+    const meta = document.createElement("span"); meta.className = "fs-meta"; meta.textContent = fmtSize(f.size);
+    const isCurrent = f.path === d.current && !!doc;
+    const extra = [meta, statusBadge(f)];
+    if (isCurrent) { const b = document.createElement("span"); b.className = "badge partial"; b.textContent = "open now"; extra.push(b); }
+    if (f.state !== "new") {
+      const redo = document.createElement("button");
+      redo.type = "button"; redo.className = "fs-redo"; redo.textContent = "↻ Start over";
+      redo.title = "Throw away everything saved for this recording and transcribe it again from the start";
+      redo.onclick = (e) => { e.stopPropagation(); startOver(f.path, f.name); };
+      extra.push(redo);
+    }
+    row("🎧", f.name, extra, () => isCurrent ? closeBrowser() : openFile(f), isCurrent);
+  }
+  if (!d.dirs.length && !d.files.length) {
+    const e = document.createElement("div"); e.className = "fs-empty"; e.textContent = "No folders or recordings here.";
+    list.append(e);
+  }
+}
+// The "Before starting" dialog: resolves with the chosen settings, or null if cancelled.
+function askSettings(path, title, okLabel) {
+  return new Promise(async (resolve) => {
+    let d;
+    try { d = await api(`/file_settings?path=${encodeURIComponent(path)}`); }
+    catch (e) { toast("Can't read the settings: " + e.message); return resolve(null); }
+    const st = d.settings;
+    $("setTitle").textContent = title;
+    $("setSub").textContent = d.saved ? "This recording's saved settings:" : "Starting from the settings you used last:";
+    const box = $("setLists");
+    box.textContent = "";
+    if (!d.lists.length) box.textContent = "(no lists yet)";
+    for (const l of d.lists) {
+      const lab = document.createElement("label");
+      const cb = document.createElement("input");
+      cb.type = "checkbox"; cb.value = l.name; cb.checked = st.keywords.includes(l.name);
+      const n = document.createElement("span"); n.className = "muted"; n.textContent = `${l.entries}`;
+      lab.append(cb, l.name, n);
+      box.append(lab);
+    }
+    const pct = (v) => Math.round(v * 100) + "%";
+    $("setConf").value = st.confidence;
+    $("setConfVal").textContent = pct(st.confidence);
+    $("setConf").oninput = () => { $("setConfVal").textContent = pct(Number($("setConf").value)); };
+    $("setAltsBox").classList.toggle("hidden", !d.has_alts);
+    $("setAlts").checked = !!st.alternatives;
+    $("setAutoOn").checked = st.auto_replace != null;
+    $("setAuto").value = st.auto_replace ?? 0.6;
+    $("setAutoVal").textContent = pct(Number($("setAuto").value));
+    const syncAlts = () => {
+      $("setAutoOn").disabled = !$("setAlts").checked;
+      $("setAuto").disabled = !$("setAlts").checked || !$("setAutoOn").checked;
+    };
+    $("setAlts").onchange = syncAlts; $("setAutoOn").onchange = syncAlts;
+    $("setAuto").oninput = () => { $("setAutoVal").textContent = pct(Number($("setAuto").value)); };
+    syncAlts();
+    $("setOk").textContent = okLabel;
+    const close = (val) => { $("setModal").classList.add("hidden"); resolve(val); };
+    $("setCancel").onclick = () => close(null);
+    $("setOk").onclick = () => close({
+      keywords: [...box.querySelectorAll("input:checked")].map((c) => c.value),
+      confidence: Number($("setConf").value),
+      alternatives: $("setAlts").checked,
+      auto_replace: $("setAutoOn").checked ? Number($("setAuto").value) : null,
+    });
+    $("setModal").classList.remove("hidden");
+    $("setOk").focus();
+  });
+}
+async function openFile(f) {
+  const settings = await askSettings(f.path, `Before starting: ${f.name}`, "Start");
+  if (!settings) return;
+  try {
+    await api("/open", { path: f.path, settings });
+  } catch (e) { return toast("Can't open it: " + e.message); }
+  if (doc) toast("Your edits on " + doc.file + " are saved; open it again any time to carry on.");
+  browserOpen = false;
+  $("browser").classList.add("hidden");
+  closeDock();
+  doc = null;
+  showWaiting("Opening " + f.name + "…");
+}
+async function startOver(path, name) {
+  if (!confirm(`Start ${name} over from scratch?\n\nThis deletes its transcript, your edits and off-topic marks, ` +
+               "the other models' guesses and its subtitle files, then transcribes it again. It can't be undone.")) return;
+  const settings = await askSettings(path, `Start over: ${name}`, "Start over");
+  if (!settings) return;
+  try {
+    await api("/redo", { path, settings });
+  } catch (e) { return toast("Can't start it over: " + e.message); }
+  browserOpen = false;
+  $("browser").classList.add("hidden");
+  closeDock();
+  doc = null;
+  showWaiting("Starting " + name + " over…");
+}
+$("redoBtn").onclick = () => { if (currentPath) startOver(currentPath, doc ? doc.file : "this recording"); };
+$("setBtn").onclick = async () => {
+  if (!currentPath || !doc) return;
+  const settings = await askSettings(currentPath, `Settings: ${doc.file}`, "Apply");
+  if (!settings) return;
+  try {
+    await api("/settings", { settings });
+    await loadDoc();          // highlights and keyword fixes are worked out again
+    toast("Settings applied. Lines you edited are kept as they are.");
+  } catch (e) { toast("Can't apply them: " + e.message); }
+};
+$("filesBtn").onclick = () => browserOpen ? closeBrowser() : openBrowser();
+$("fsBack").onclick = closeBrowser;
+$("fsGo").onclick = () => loadFolder($("fsPath").value.trim());
+$("fsPath").addEventListener("keydown", (e) => { if (e.key === "Enter") { e.preventDefault(); loadFolder($("fsPath").value.trim()); } });
+$("quitBtn").onclick = async () => {
+  if (!confirm("Close the program? Everything is saved; unfinished files carry on when you open them again.")) return;
+  try { await api("/quit", {}); } catch (e) { /* it's closing */ }
+};
+
+// ------------------------------------------------------------------ seek-bar marks
+// Where the work is, along the whole recording: unsure parts (yellow), automatic changes
+// (blue), off-topic stretches (hatched) and, once found, who speaks when (colours below).
+let tlTimer = null;
+function scheduleTlMarks() { clearTimeout(tlTimer); tlTimer = setTimeout(buildTlMarks, 400); }
+function buildTlMarks() {
+  const box = $("tlMarks");
+  box.textContent = "";
+  if (!doc || !doc.duration) return;
+  const pct = (t) => (100 * Math.max(0, Math.min(1, t / doc.duration))).toFixed(2) + "%";
+  const frag = document.createDocumentFragment();
+  const seen = new Set();
+  const tick = (t, cls) => {
+    const bucket = cls + Math.round(t / doc.duration * 400);    // at most one per pixel or so
+    if (seen.has(bucket)) return;
+    seen.add(bucket);
+    const d = document.createElement("div"); d.className = "tk " + cls; d.style.left = pct(t); frag.append(d);
+  };
+  for (const m of doc.marks || []) {
+    const d = document.createElement("div"); d.className = "tk-off";
+    d.style.left = pct(m.a); d.style.width = `calc(${pct(m.b)} - ${pct(m.a)})`; frag.append(d);
+  }
+  const turns = doc.speakers && doc.speakers.turns;
+  if (turns) {
+    for (const [a, b, k] of turns) {
+      const d = document.createElement("div"); d.className = "tk-s";
+      d.style.left = pct(a); d.style.width = `calc(${pct(b)} - ${pct(a)})`; d.style.background = spkColor(k);
+      frag.append(d);
+    }
+  }
+  for (const seg of doc.segments) {
+    let last = null;
+    for (const w of seg.words) {
+      if (w.u !== undefined && w.u !== last && !markAt(w.t)) tick(w.t, "tk-u");
+      last = w.u;
+      if (w.s === "auto") tick(w.t, "tk-a");
+    }
+  }
+  box.append(frag);
+}
+
+// ------------------------------------------------------------------ header menu
+function toggleMenu(show) {
+  const m = $("menu");
+  show = show ?? m.classList.contains("hidden");
+  m.classList.toggle("hidden", !show);
+  $("menuBtn").setAttribute("aria-expanded", String(show));
+  if (show) {          // open towards the side with room (the button moves when the header wraps)
+    m.style.left = ""; m.style.right = "";
+    if (m.getBoundingClientRect().left < 8) { m.style.left = "0"; m.style.right = "auto"; }
+  }
+}
+$("menuBtn").onclick = (e) => { e.stopPropagation(); toggleMenu(); };
+document.addEventListener("click", (e) => { if (!e.target.closest?.(".menu-wrap")) toggleMenu(false); });
+$("menu").addEventListener("click", (e) => { if (e.target.closest("button.mi")) toggleMenu(false); });
+
+// A small dialog asking for one value: resolves with the text, or null if cancelled.
+function ask({ title, text = "", value = "", placeholder = "", ok = "OK", type = "text" }) {
+  return new Promise((resolve) => {
+    $("askTitle").textContent = title;
+    $("askText").textContent = text;
+    const inp = $("askInput");
+    inp.type = type; inp.value = value; inp.placeholder = placeholder;
+    const close = (v) => { $("askModal").classList.add("hidden"); resolve(v); };
+    $("askOk").textContent = ok;
+    $("askOk").onclick = () => close(inp.value.trim());
+    $("askCancel").onclick = () => close(null);
+    inp.onkeydown = (e) => {
+      if (e.key === "Enter" && !e.isComposing) { e.preventDefault(); close(inp.value.trim()); }
+      if (e.key === "Escape") { e.preventDefault(); close(null); }
+    };
+    $("askModal").classList.remove("hidden");
+    inp.focus(); inp.select();
+  });
+}
+function showKeys(show = true) { $("keysModal").classList.toggle("hidden", !show); if (show) $("keysOk").focus(); }
+$("keysBtn").onclick = () => showKeys();
+$("keysOk").onclick = () => showKeys(false);
+
+// ------------------------------------------------------------------ undo
+async function undo() {
+  if (busy || !doc || !doc.undo) return;
+  busy = true;
+  try {
+    const res = await api("/undo", {});
+    if (res.reload) await refreshAll();
+    else for (const s of res.segments) replaceSeg(s);
+    setCounts(res);
+    for (const seg of doc.segments) if (res.reload) rerenderSeg(seg);
+    toast(res.notice.replace(/[⁨⁩]/g, ""));
+    if (sel) closeDock();
+  } catch (e) { toast("Could not undo: " + e.message); }
+  finally { busy = false; }
+}
+$("undoBtn").onclick = undo;
+
+// The whole transcript again (after punctuation, speakers or a big undo), keeping the place.
+async function refreshAll() {
+  const d = await api("/doc");
+  if (!d.segments || !doc || d.file_id !== fileId) return;
+  doc.speakers = d.speakers;
+  doc.threshold = d.threshold;
+  spkOf = new Map();
+  const have = doc.segments.length;
+  computeSpeakers(d.segments);
+  for (const seg of d.segments.slice(0, have)) {
+    segById.set(seg.id, seg);
+    doc.segments[seg.id] = seg;
+    rerenderSeg(seg);
+  }
+  appendSegs(d.segments.slice(have));
+  setCounts(d);
+  if (sel) paintSel();
+}
+
+// ------------------------------------------------------------------ jobs (punctuation, speakers) and the queue
+let docRev = 0, jobSeq = null;
+function showJob(s) {
+  const j = s.job;
+  $("jobHead").classList.toggle("hidden", !j);
+  if (j) $("jobText").textContent = j.text;
+  const done = s.job_done ? s.job_done.seq : 0;
+  if (jobSeq === null) jobSeq = done;          // (not the message of a job from before the page opened)
+  else if (done > jobSeq) { jobSeq = done; toast(s.job_done.text); }
+  const q = s.queue;
+  const qh = $("queueHead");
+  const active = q && (q.current || q.waiting.length);
+  qh.classList.toggle("hidden", !active);
+  if (active) {
+    const pc = q.current && q.duration ? ` ${Math.round(100 * q.done_sec / q.duration)}%` : "";
+    qh.textContent = `⏩ Queue: ${q.current ? (q.paused ? "waiting for this one" : "working") + pc : "starting"} · ${q.waiting.length} more`;
+  }
+  // file list
+  $("fsQueueStop").classList.toggle("hidden", !active);
+  let st = "";
+  if (active) {
+    st = q.current ? `Transcribing ${q.current}${q.duration ? ` (${fmtTime(q.done_sec)} of ${fmtTime(q.duration)})` : " (reading the audio)"}` : "";
+    if (q.paused) st += ", paused while the open recording is transcribed";
+    if (q.waiting.length) st += `${st ? "; " : ""}${q.waiting.length} waiting`;
+  } else if (q && (q.finished || q.failed.length)) {
+    st = `Queue done: ${q.finished} transcribed` + (q.failed.length ? `, ${q.failed.length} failed (${q.failed.join(", ")})` : "") + ".";
+  }
+  $("fsQueueSt").textContent = st;
+  if (browserOpen && active && Date.now() - (showJob.lastList || 0) > 5000) {   // badges follow the queue
+    showJob.lastList = Date.now();
+    loadFolder(fsPath, true);
+  }
+}
+$("spkBtn").onclick = async () => {
+  const mins = doc ? Math.max(1, Math.round(doc.duration / 60 * 0.12)) : 1;
+  const n = await ask({ title: "Find speakers", ok: "Start", type: "number", placeholder: "empty: find out",
+    text: `Works out who speaks when, from the voices: about ${mins} minute${mins > 1 ? "s" : ""} for this recording ` +
+          "(first time, 34 MB of models are downloaded). How many people speak? It works best when you give the number; " +
+          "leave it empty if you don't know." });
+  if (n === null) return;
+  try { await api("/speakers", { n: n ? Number(n) : null }); toast("Finding who speaks when…"); }
+  catch (e) { toast("Can't now: " + e.message); }
+};
+$("exportBtn").onclick = async () => {
+  try {
+    const r = await api("/export", {});
+    toast(`Saved ${r.files.join(" and ")} in this recording's folder.`);
+    if (confirm(`Saved ${r.files.join(" and ")}.\n\nShow them in Explorer?`)) api("/reveal", { path: r.first }).catch(() => {});
+  } catch (e) { toast("Could not save: " + e.message); }
+};
+$("revealBtn").onclick = () => api("/reveal", {}).catch((e) => toast("Can't open it: " + e.message));
+$("queueHead").onclick = () => openBrowser();
+$("fsQueue").onclick = async () => {
+  try {
+    const r = await api("/queue", { folder: fsPath });
+    toast(r.added ? `${r.added} recording${r.added > 1 ? "s" : ""} added to the queue.` : "Nothing to add: every recording here is transcribed (or already queued).");
+    loadFolder(fsPath, true);
+  } catch (e) { toast("Can't start it: " + e.message); }
+};
+$("fsQueueStop").onclick = async () => {
+  try { await api("/queue_stop", {}); toast("Queue stopped; what was transcribed is kept."); loadFolder(fsPath, true); }
+  catch (e) { toast(e.message); }
+};
+// speakers' names: click one in the text to rename that speaker everywhere
+$("doc").addEventListener("click", async (e) => {
+  const b = e.target.closest(".spk");
+  if (!b) return;
+  e.stopPropagation();
+  const k = Number(b.dataset.spk);
+  const name = await ask({ title: "Rename speaker", text: `Name for ${spkName(k)}, everywhere in this recording (empty: back to "Speaker ${k + 1}"):`,
+                           value: doc.speakers.names?.[String(k)] || "", placeholder: `Speaker ${k + 1}` });
+  if (name === null) return;
+  try {
+    const r = await api("/speaker_name", { id: k, name });
+    doc.speakers = r.speakers;
+    for (const seg of doc.segments) if (spkOf.get(seg.id) === k) rerenderSeg(seg);
+  } catch (err) { toast("Could not rename: " + err.message); }
+}, true);
+
+// ------------------------------------------------------------------ where you were
+let placeSent = -1;
+function sendPlace(flush = false) {
+  if (!doc) return;
+  const t = Math.round(main.currentTime * 10) / 10;
+  if (!flush && Math.abs(t - placeSent) < 1) return;
+  placeSent = t;
+  api("/place", { t, flush }).catch(() => {});
+}
+setInterval(() => sendPlace(false), 5000);
+main.addEventListener("pause", () => sendPlace(true));
+window.addEventListener("pagehide", () => {   // tells the program the page is closing (it closes too if no page comes back)
+  try { navigator.sendBeacon(q("/bye"), new Blob([JSON.stringify(doc ? { t: main.currentTime } : {})], { type: "text/plain" })); }
+  catch (e) { /* */ }
+});
+
+// ------------------------------------------------------------------ find (and replace)
+let searchTimer = null, searchSeq = 0;
+function toggleSearch(show) {
+  const p = $("searchPanel");
+  show = show ?? p.classList.contains("hidden");
+  p.classList.toggle("hidden", !show);
+  if (show) {
+    toggleChanges(false);
+    p.style.top = (document.querySelector("header").getBoundingClientRect().bottom + 8) + "px";
+    const pick = sel && !sel.multi ? heardOf(sel) : "";
+    if (pick && !$("spQ").value) $("spQ").value = pick;
+    $("spQ").focus(); $("spQ").select();
+    runSearch();
+  }
+}
+function scope() { return document.querySelector("input[name=spScope]:checked").value; }
+function highlight(text, query) {      // the words of a line, those that make up the query marked
+  const want = new Set(normWords(query));
+  const span = document.createElement("span");
+  text.split(" ").forEach((w, i) => {
+    if (i) span.append(" ");
+    const hit = normWords(w).some((p) => [...want].some((q) => p.includes(q) || q.includes(p)));
+    const el = document.createElement(hit ? "mark" : "span"); el.textContent = w; span.append(el);
+  });
+  return span;
+}
+async function runSearch() {
+  const query = $("spQ").value.trim();
+  const mine = ++searchSeq;
+  const list = $("spList");
+  const sc = scope();
+  $("spReplRow").classList.toggle("hidden", sc !== "this" || !doc);
+  if (normWords(query).join("").length < 2) {
+    list.textContent = "";
+    $("spSum").textContent = "Type at least two letters. Spelling variants (ي/ی, ك/ک, half-spaces) count as the same.";
+    $("spReplBtn").disabled = true;
+    return;
+  }
+  let r;
+  try { r = await api(`/search?q=${encodeURIComponent(query)}&scope=${sc}`); }
+  catch (e) { return; }
+  if (mine !== searchSeq) return;
+  list.textContent = "";
+  if (sc === "this") {
+    $("spSum").textContent = r.hits.length
+      ? `${r.hits.length} place${r.hits.length > 1 ? "s" : ""} in this recording` + (r.whole !== r.hits.length ? ` (${r.whole} as whole words, which “Replace all” changes)` : "")
+      : "Not found in this recording.";
+    $("spReplBtn").disabled = !r.whole;
+    $("spReplBtn").textContent = r.whole ? `Replace all ${r.whole}` : "Replace all";
+  } else {
+    $("spSum").textContent = r.hits.length
+      ? `${r.hits.length}${r.more ? "+" : ""} line${r.hits.length > 1 ? "s" : ""} in ${r.files} recording${r.files > 1 ? "s" : ""} (saved transcripts, with your edits)`
+      : "Not found in any saved transcript.";
+  }
+  for (const h of r.hits) {
+    const row = document.createElement("div");
+    row.className = "cp-row";
+    const time = document.createElement("span"); time.className = "cp-time"; time.textContent = fmtTime(h.t);
+    const text = document.createElement("span"); text.className = "cp-text"; text.append(highlight(h.text, query));
+    row.append(time, text);
+    if (sc === "all") {
+      const f = document.createElement("span"); f.className = "cp-file"; f.textContent = h.file; f.title = h.path || h.file;
+      row.append(f);
+      if (!h.path) row.title = "The recording isn't where it was (open its folder once in ☰ Files to link it again)";
+    }
+    row.onclick = () => openHit(h, sc);
+    list.append(row);
+  }
+}
+let pendingJump = null;        // {path, line, t}: where to go once that recording is open
+function jumpTo(line, t, i, j, query) {
+  const seg = segById.get(line);
+  if (!seg) return toast("That line isn't transcribed yet.");
+  if (i === undefined && query) {        // the words of the line that make up what was searched for
+    const want = normWords(query);
+    for (let k = 0; k < seg.words.length && i === undefined; k++) {
+      const got = seg.words.slice(k, k + want.length + 2).flatMap((w) => normWords(w.w));
+      if (want.length && got[0] && got[0].includes(want[0]) && want.every((x, d) => got[d] && got[d].includes(x))) {
+        let n = 0, m = k;
+        while (m < seg.words.length && n < want.length) { n += Math.max(1, normWords(seg.words[m].w).length); m++; }
+        i = k; j = m;
+      }
+    }
+  }
+  if (i !== undefined) select(seg.id, i, j, false, i);
+  else {
+    const k = Math.max(0, seg.words.findIndex((w) => w.t >= t - 0.05));
+    select(seg.id, k, k + 1, false, k);
+  }
+}
+async function openHit(h, sc) {
+  const query = $("spQ").value.trim();
+  if (sc === "this") return jumpTo(h.seg, h.t, h.i, h.j);
+  if (h.path && h.path === currentPath && doc) return jumpTo(h.line, h.t, undefined, undefined, query);
+  if (!h.path) return toast("Can't open it: the recording isn't where it was.");
+  pendingJump = { path: h.path, line: h.line, t: h.t, query };
+  toggleSearch(false);
+  await openFile({ path: h.path, name: h.file });
+}
+$("searchBtn").onclick = () => toggleSearch();
+$("spClose").onclick = () => toggleSearch(false);
+$("spQ").addEventListener("input", () => { clearTimeout(searchTimer); searchTimer = setTimeout(runSearch, 300); });
+document.querySelectorAll("input[name=spScope]").forEach((r) => r.onchange = runSearch);
+$("spReplBtn").onclick = () => replaceAll($("spQ").value.trim(), $("spR").value.trim());
+
+// ------------------------------------------------------------------ events
+// Dragging across words selects them, across lines too (for marking off-topic parts).
+let drag = null, suppressClick = false;
+const wordPos = (el) => { const w = el?.closest?.(".w"); return w ? { seg: Number(w.closest(".seg").dataset.id), i: Number(w.dataset.i) } : null; };
+$("doc").addEventListener("pointerdown", (e) => {
+  if (e.button !== 0 || e.shiftKey) return;
+  const p = wordPos(e.target);
+  drag = p ? { from: p, to: p, moved: false } : null;
+});
+$("doc").addEventListener("pointerover", (e) => {
+  if (!drag || !(e.buttons & 1)) return;
+  const p = wordPos(e.target);
+  if (!p || (p.seg === drag.to.seg && p.i === drag.to.i)) return;
+  drag.to = p;
+  drag.moved = true;
+  // show the selection as it grows (the editor bar opens on release)
+  const [a, b] = (p.seg < drag.from.seg || (p.seg === drag.from.seg && p.i < drag.from.i)) ? [p, drag.from] : [drag.from, p];
+  sel = { multi: a.seg !== b.seg, seg: a.seg, i: a.i, endSeg: b.seg, j: b.i + 1, anchor: drag.from.i, anchorSeg: drag.from.seg };
+  paintSel();
+});
+window.addEventListener("pointerup", () => {
+  if (drag && drag.moved) {
+    suppressClick = true;
+    selectRange(drag.from.seg, drag.from.i, drag.to.seg, drag.to.i);
+  }
+  drag = null;
+});
+$("doc").addEventListener("click", (e) => {
+  if (suppressClick) { suppressClick = false; return; }
+  const row = e.target.closest(".seg");
+  if (!row) return;
+  const seg = segById.get(Number(row.dataset.id));
+  if (e.target.closest(".ts")) { return seek(seg.start, true); }   // play the recording from this line
+  const w = e.target.closest(".w");
+  if (!w) return;
+  const i = Number(w.dataset.i);
+  if (e.shiftKey && sel) {          // extend from where the selection started, across lines too
+    selectRange(sel.anchorSeg ?? sel.seg, sel.anchor ?? sel.i, seg.id, i);
+  } else {
+    const [a, b, unsure] = spanAt(seg, i);
+    select(seg.id, a, b, unsure, i);
+  }
+});
+$("markBtn").onclick = () => markSelection(true);
+$("autoCount").onclick = () => toggleChanges();
+$("cpClose").onclick = () => toggleChanges(false);
+$("unmarkBtn").onclick = () => markSelection(false);
+$("hideOff").onchange = () => {
+  document.body.classList.toggle("hide-off", $("hideOff").checked);
+  try { localStorage.setItem("review.hideOff", $("hideOff").checked ? "1" : ""); } catch (e) { /* */ }
+};
+try {
+  if (localStorage.getItem("review.hideOff")) { $("hideOff").checked = true; document.body.classList.add("hide-off"); }
+} catch (e) { /* private mode */ }
+$("save").onclick = () => edit("save");
+$("keep").onclick = () => edit("keep");
+$("blank").onclick = () => edit("blank");
+$("delete").onclick = () => edit("delete");
+$("close").onclick = () => { awaitingNext = false; closeDock(); };
+$("replay").onclick = replay;
+$("slow").onchange = () => { $("audio").playbackRate = $("slow").checked ? 0.75 : 1; };
+function goNextFromPlayer() {     // nothing selected: the next unsure part after where the player is
+  const t = main.currentTime || 0;
+  const hit = wordAt(t);
+  if (hit) return goNext(hit[1], hit[2]);
+  const seg = doc && doc.segments.find((s) => s.start >= t);
+  return seg ? goNext(seg.id, 0) : goNext();
+}
+$("next").onclick = () => sel ? goNext(sel.seg, sel.j) : goNextFromPlayer();
+$("finish").onclick = showFinish;
+$("text").addEventListener("input", updateRulePreview);
+$("text").addEventListener("keydown", (e) => {
+  if (e.key === "Enter" && !e.isComposing) { e.preventDefault(); edit("save"); }
+});
+document.addEventListener("keydown", (e) => {
+  if (!$("askModal").classList.contains("hidden")) return;          // (its input has its own keys)
+  if (!$("keysModal").classList.contains("hidden")) {
+    if (e.key === "Escape" || e.key === "Enter" || e.key === "?") { e.preventDefault(); showKeys(false); }
+    return;
+  }
+  if (!$("menu").classList.contains("hidden") && e.key === "Escape") return toggleMenu(false);
+  const inField = !!e.target.closest?.("input[type=text], input[type=number], textarea");
+  if ((e.ctrlKey || e.metaKey) && !e.altKey && e.code === "KeyF") { e.preventDefault(); return toggleSearch(true); }
+  if (!$("searchPanel").classList.contains("hidden") && e.key === "Escape") { e.preventDefault(); return toggleSearch(false); }
+  if (e.target === $("spQ") || e.target === $("spR")) return;
+  if (!inField && e.key === "?") { e.preventDefault(); return showKeys(); }
+  if (browserOpen) {                      // the file list has its own keys (Enter in the path box)
+    if (e.key === "Escape" && doc) closeBrowser();
+    return;
+  }
+  // Ctrl+Z: undo the last change (in the text box it undoes typing, as usual)
+  if ((e.ctrlKey || e.metaKey) && !e.shiftKey && e.code === "KeyZ" && !inField && doc) { e.preventDefault(); return undo(); }
+  if (!$("setModal").classList.contains("hidden")) {
+    if (e.key === "Escape") $("setCancel").click();
+    else if (e.key === "Enter" && e.target.tagName !== "BUTTON") { e.preventDefault(); $("setOk").click(); }
+    return;
+  }
+  if (!doc || !$("finishModal").classList.contains("hidden")) {
+    if (e.key === "Escape") $("finishModal").classList.add("hidden");
+    return;
+  }
+  const typing = e.target === $("text");
+  const onControl = !!e.target.closest?.("input, select, textarea, button");
+  const plain = !e.ctrlKey && !e.metaKey && !e.altKey;
+  // player keys (as on YouTube), when not typing: Space/K play-pause, ←/→ 5 s, J/L 10 s, Shift+</> speed
+  if (!onControl && plain && (e.code === "Space" || e.code === "KeyK")) { e.preventDefault(); return togglePlay(); }
+  if (!typing && plain && !e.shiftKey && (e.code === "ArrowLeft" || e.code === "ArrowRight")) {
+    if (e.target.closest?.("select")) return;
+    e.preventDefault(); return seek(main.currentTime + (e.code === "ArrowRight" ? 5 : -5));
+  }
+  if (!typing && plain && (e.code === "KeyJ" || e.code === "KeyL")) {
+    e.preventDefault(); return seek(main.currentTime + (e.code === "KeyL" ? 10 : -10));
+  }
+  if (!typing && plain && e.shiftKey && (e.code === "Period" || e.code === "Comma")) {
+    e.preventDefault();
+    const steps = [0.5, 0.75, 1, 1.25, 1.5, 1.75, 2, 2.5, 3];
+    const k = steps.indexOf(main.playbackRate);
+    return setSpeed(steps[Math.max(0, Math.min(steps.length - 1, (k < 0 ? 2 : k) + (e.code === "Period" ? 1 : -1)))]);
+  }
+  if (e.key === "Escape" && sel) { e.preventDefault(); awaitingNext = false; closeDock(); }
+  else if (e.ctrlKey && e.code === "Space" && sel) { e.preventDefault(); replay(); }
+  else if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "b" && sel) { e.preventDefault(); edit("blank"); }
+  // M marks the selection off-topic, Shift+M unmarks (Ctrl+M too while typing in the box)
+  else if (sel && e.code === "KeyM" && !e.altKey && ((!typing && !e.ctrlKey && !e.metaKey) || e.ctrlKey)) {
+    e.preventDefault();
+    markSelection(!e.shiftKey);
+  }
+  else if (!typing && !e.ctrlKey && !e.metaKey && !e.altKey && e.code === "KeyN") {
+    e.preventDefault(); sel ? goNext(sel.seg, sel.j) : goNextFromPlayer();
+  }
+});
+
+poll();
+</script>
+</body>
+</html>

@@ -1,0 +1,10 @@
+sherpa-onnx>=1.12
+av>=12
+numpy
+onnxruntime
+kaldi-native-fbank
+# second opinions on unsure parts in the review page (--alternatives)
+faster-whisper>=1.1
+vosk>=0.3.45
+# punctuation (the model's tokenizer; speaker detection uses sherpa-onnx)
+tokenizers>=0.15

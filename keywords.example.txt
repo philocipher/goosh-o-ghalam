@@ -1,0 +1,24 @@
+# Keywords: names and terms the transcript should always spell correctly.
+# One entry per line, saved as UTF-8. Lines starting with # are ignored.
+#
+# This is an example. The first time the program runs it copies it to keywords\general.txt.
+# Keep one list per topic in the keywords folder (philosophy.txt, history.txt, ...) and pick
+# the lists for each recording on the review page. The folder is kept out of the repository.
+#
+#   A plain keyword: words the model hears close to it get replaced by this spelling.
+#       کلاب‌هاوس
+#   A fixed rule: "what the model writes => what you want". Use it when a keyword
+#   is too different from the mistake, or too short to match on its own.
+#       کلاب هوس => کلاب‌هاوس
+#
+# Avoid single everyday-looking words (e.g. تقابل would turn مقابل into تقابل);
+# put them inside a longer phrase instead (تقابل تضاد).
+# If a term keeps replacing something it shouldn't, put # in front of it.
+#
+# Corrections added on the review page (as a keyword or a rule) are appended at the end.
+
+# ---------- examples ----------
+ابن سینا
+این سینا => ابن سینا
+ملاصدرا
+اصالت وجود

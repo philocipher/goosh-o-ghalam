@@ -1,0 +1,23 @@
+# Personal data: recordings, transcripts and edits, your own keyword list
+input_files/
+transcripts/
+keywords/
+keywords.txt
+
+# Downloaded by setup.bat / the review page (large, and recreated on any computer)
+python/
+.venv/
+models/
+python.zip
+get-pip.py
+
+# Python leftovers
+__pycache__/
+*.pyc
+
+# Downloads in progress, editors, OS
+*.part
+.vscode/
+.idea/
+Thumbs.db
+desktop.ini
