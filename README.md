@@ -175,6 +175,8 @@ Under the text box, the editor bar also shows what two other recognisers hear in
 
 Vosk alone never decides: its scores are too optimistic (on the test clip it gave 100% to «برای», «جذاب از» and «داریم به نام», all wrong), so it only counts when it heard the same words as Nava. The words must also line up with ours on both sides and not be much longer than the unsure part, and the part open in the editor bar is never touched. They are saved like your edits and counted in the summary.
 
+This goes on in the background after the first pass, so the counts keep rising for a while. The header shows how far it is: *● Checking unsure parts: Nava 54 left (~5 min) · Vosk done*. It goes away once both have listened to every unsure part. Nava is the slow one, several times slower than Vosk. The part you open in the editor bar, and the next few after it, always go first.
+
 To check them, click the count in the header (*6 changed · 4 confirmed automatically ▾*): a list shows every one with its time, *what was heard ← what it became*, and who decided how surely. Click a row to open it in the text (the player moves there too), or **Undo** to put back what the main model had heard. While one is open, the editor bar shows **‹ 2 of 10 ›** to step through them, and **Put back the original**. Hovering a changed word in the text also shows what was there before.
 
 On the 4-minute test clip this settled 10 of 27 unsure parts; some changes were clearly right («اطلابه» → «اطلاقه», «اه» → «اعمه»), some wrong («داری؟» → «داریم بنابرا»), so it's worth going through the list. `--auto-replace 0.8` is stricter, `--auto-replace off` turns it off.

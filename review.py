@@ -1242,6 +1242,31 @@ class WebUI:
                 "segments": [s.seg_json(s.segments[k]) for k in ids] if s else [],
                 **(s.counts() if s else {})}
 
+    def alts_brief(self):
+        """
+        For /state (under the lock): how far the other models are with the open recording's
+        unsure parts: {"total", "left": {model: parts not checked yet}, "status": {model: ...},
+        "busy": {model: working now}, "held": waiting for a live session to stop}. Recounted
+        at most once a second (it goes through every line).
+        """
+        if self.alts is None or not self.use_alts or self.session is None:
+            return None
+        now = time.time()
+        last = getattr(self, "_alts_brief", None)
+        if last and now - last[0] < 1.0 and last[1] == self.state["file_id"]:
+            return last[2]
+        s, fid, alts = self.session, self.state["file_id"], self.alts
+        keys = {(fid,) + s.alt_key(seg, i, j) for seg in s.segments for i, j in s.spans(seg)}
+        with alts.cv:
+            names = [m.name for m in alts.models]
+            left = {n: sum(1 for k in keys if n not in alts.cache.get(k, {})) for n in names}
+            status = dict(alts.status)
+            busy = {n: alts.current[n] is not None and alts.current[n][0] == fid for n in names}
+        out = {"total": len(keys), "left": left, "status": status, "busy": busy,
+               "held": bool(alts.hold and alts.hold())}
+        self._alts_brief = (now, fid, out)
+        return out
+
     def _alt_wanted(self, key):
         """Is a prepared clip still worth computing? (called by the AltEngine threads)"""
         with self.lock:
@@ -1571,6 +1596,7 @@ def _make_handler(ui):
                     ui.last_seen = time.time()
                     return self._json({**ui.state,
                                        "alts_status": dict(ui.alts.status) if ui.alts else {},
+                                       "alts_work": ui.alts_brief(),
                                        "live": ui.live_brief(), "open_live": ui.open_live})
                 if url.path == "/doc":
                     try:

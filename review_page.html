@@ -264,6 +264,7 @@
   .pill { font-size: 12px; padding: 3px 10px; border-radius: 999px; border: 1px solid var(--line); color: var(--muted);
           white-space: nowrap; display: inline-flex; align-items: center; gap: 6px; background: none; }
   .pill .dot { width: 7px; height: 7px; }
+  .pill.idle .dot { background: var(--muted); animation: none; }
   button.pill { cursor: pointer; }
   .icon-btn { padding: 7px 10px; }
 
@@ -341,6 +342,7 @@
     <a class="model-tag hidden" id="modelTag" target="_blank" rel="noopener"></a>
     <span class="count hidden" id="liveHead"></span>
     <span class="pill hidden" id="jobHead"><span class="dot"></span><span id="jobText"></span></span>
+    <span class="pill hidden" id="altHead"><span class="dot"></span><span id="altText"></span></span>
     <button class="pill hidden" id="queueHead" type="button" title="Recordings being transcribed in the background: click to see them"></button>
     <span class="count hidden" id="count"><b id="left">0</b> unsure left</span>
     <button class="auto-count hidden" id="autoCount" type="button"
@@ -2200,6 +2202,7 @@ function showJob(s) {
   const done = s.job_done ? s.job_done.seq : 0;
   if (jobSeq === null) jobSeq = done;          // (not the message of a job from before the page opened)
   else if (done > jobSeq) { jobSeq = done; toast(s.job_done.text); }
+  showAltWork(s);
   const q = s.queue;
   const qh = $("queueHead");
   const active = q && (q.current || q.waiting.length);
@@ -2223,6 +2226,39 @@ function showJob(s) {
     showJob.lastList = Date.now();
     loadFolder(fsPath, true);
   }
+}
+// "Checking unsure parts: Nava 87 left (~12 min) · Vosk done": the other models listening
+// again to every unsure part in the background, which settles some of them by itself
+const altSeen = {};                 // model -> [[time, parts left]] to estimate the time left
+function showAltWork(s) {
+  const w = s.alts_work, el = $("altHead");
+  const models = w ? Object.keys(w.left).filter((n) => !String(w.status[n]).startsWith("unavailable")) : [];
+  const todo = models.filter((n) => w.left[n] > 0);
+  el.classList.toggle("hidden", !s.reviewing || !todo.length);
+  if (!todo.length) { for (const k in altSeen) delete altSeen[k]; return; }
+  const now = Date.now();
+  const part = (n) => {
+    const st = w.status[n], left = w.left[n];
+    if (!left) return `${n} done`;
+    if (/^(downloading|loading)/.test(st)) return `${n} ${st}`;
+    let h = (altSeen[n] ||= []);
+    if (h.length && left > h[h.length - 1][1]) h = altSeen[n] = [];   // more parts came in: start again
+    h.push([now, left]);
+    while (h.length > 2 && now - h[0][0] > 180000) h.shift();     // the last 3 minutes
+    let eta = "";
+    const [t0, l0] = h[0];
+    if (!w.held && now - t0 > 20000 && l0 > left) {
+      const min = (left / ((l0 - left) / (now - t0))) / 60000;
+      eta = min < 1.5 ? " (~1 min)" : ` (~${Math.round(min)} min)`;
+    }
+    return `${n} ${left} left${eta}`;
+  };
+  const held = w.held ? " · on hold so live transcription keeps up" : "";
+  $("altText").textContent = `Checking unsure parts: ${models.map(part).join(" · ")}${held}`;
+  el.classList.toggle("idle", w.held || !todo.some((n) => w.busy[n]));
+  el.title = `${models.join(" and ")} listen again to each of the ${w.total} unsure parts, in the background. ` +
+    `Where they agree surely enough, the part is changed or confirmed by itself ` +
+    `(the "changed · confirmed automatically" list). The rest stay unsure for you.`;
 }
 $("spkBtn").onclick = async () => {
   const mins = doc ? Math.max(1, Math.round(doc.duration / 60 * 0.12)) : 1;
