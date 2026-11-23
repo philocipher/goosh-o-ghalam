@@ -654,6 +654,10 @@ def transcribe_file(path: Path, work, sherpa_onnx, recognizer, vad_config, itn_f
             # Speech detection restarts just after the last saved line (a pause, since lines
             # end at one), so nothing is transcribed twice.
             for start, samples in vad_segments(sherpa_onnx, vad_config, audio, resume_at):
+                while LIVE_ON.is_set():       # a live session has the computer meanwhile
+                    if reviewer:
+                        reviewer.check_switch()
+                    time.sleep(0.2)
                 result = recognizer.decode(samples)
                 seg_dur = len(samples) / SAMPLE_RATE
                 if result.text:
@@ -675,7 +679,15 @@ def transcribe_file(path: Path, work, sherpa_onnx, recognizer, vad_config, itn_f
             work.close()
             FG_IDLE.set()
         print(f"\r  transcribed {total} of {total}  ")
+    write_outputs(path, work, decoded, reviewer, keyword_fixer, itn_for, t0, duration)
 
+
+def write_outputs(path: Path, work, decoded, reviewer, keyword_fixer, itn_for, t0, duration):
+    """
+    The end of a recording: wait for the review (if any), then write the .srt, the lesson
+    files (if parts were marked off-topic) and the documents.
+    """
+    out_path = work.srt
     fixes = 0
     if reviewer:  # applies the keywords itself (they may change while reviewing)
         decoded, fixes = reviewer.finish_file()
@@ -715,6 +727,55 @@ def transcribe_file(path: Path, work, sherpa_onnx, recognizer, vad_config, itn_f
         print(reviewer.summary())
         reviewer.file_saved(out_path.name)
     print(f"  {n_cues} subtitles, {duration / 60:.1f} min audio in {took:.0f}s -> {out_path}")
+
+
+def transcribe_live(session, work, reviewer, stop: threading.Event, itn_for=None):
+    """
+    A live session on the review page, as the open recording: each line goes on the page as
+    soon as it is said, to be reviewed while it is still listening (the other models' guesses
+    come a little later). Ends when `stop` is set (the page's Stop), then the review carries
+    on like any recording's and Finish writes the subtitles. session: live.LiveTranscriber,
+    already listening; work: the recording's folder.
+    """
+    t0 = time.time()
+    path = session.wav_path
+    reviewer.start_file(path.name, 0.0, session.audio(), work, ())
+    rs = reviewer.session
+    work.open_segments(resume=False)
+    shown = 0
+    # A line goes on the page once the sound after it is in too, so the clips played (and
+    # given to the other models) for its last words aren't cut short; at a break (paused,
+    # another device) there is no more sound to wait for.
+    cover = 1.0
+
+    def sync(final=False):
+        nonlocal shown
+        audio = session.audio()
+        rs.audio, rs.duration, rs._pcm = audio, len(audio) / SAMPLE_RATE, None
+        whole = final or session.settled
+        for start, dur, words in session.lines_from(shown):
+            if not whole and start + dur + cover > rs.duration:
+                break
+            work.add_segment(start, dur, words)
+            reviewer.add_segment(start, dur, words)
+            shown += 1
+        reviewer.progress(rs.duration)
+
+    try:
+        while not stop.is_set() and not session.error:
+            sync()
+            reviewer.check_switch()   # another recording opened, or closing: stop (and save) first
+            time.sleep(0.2)
+    finally:
+        session.stop()
+        sync(final=True)
+        work.finish_segments()
+        work.close()
+        work.refresh_header()     # the recording's final size: the saved lines are its own
+        print(f"\n  live: stopped after {fmt_clock(session.duration)}, {shown} lines -> {path}")
+    if session.error:
+        print(f"  live: {session.error}")
+    write_outputs(path, work, [], reviewer, None, itn_for, t0, session.duration)
 
 
 def write_srt(path: Path, decoded, itn=None) -> int:
@@ -797,6 +858,7 @@ def write_lesson(stem: Path, decoded, marks, itn=None) -> None:
 # only works then, so the recording you have open always comes first.
 FG_IDLE = threading.Event()
 FG_IDLE.set()
+LIVE_ON = threading.Event()   # a live session is on: everything else waits, so it keeps up
 
 
 class BatchWorker:
@@ -874,7 +936,9 @@ class BatchWorker:
             return {"current": self.current.name if self.current else None,
                     "done_sec": round(self.done_sec, 1), "duration": round(self.duration, 1),
                     "waiting": [p.name for p in self.items], "finished": self.finished,
-                    "failed": list(self.failed), "paused": self.current is not None and not FG_IDLE.is_set()}
+                    "failed": list(self.failed),
+                    "paused": self.current is not None and (not FG_IDLE.is_set() or LIVE_ON.is_set()),
+                    "live": LIVE_ON.is_set()}
 
     def _report(self):
         try:
@@ -927,7 +991,7 @@ class BatchWorker:
         last = 0.0
         try:
             for start, samples in vad_segments(self.sherpa_onnx, self.vad_config, audio, resume_at):
-                while not FG_IDLE.is_set() and not self.skip.is_set():
+                while (not FG_IDLE.is_set() or LIVE_ON.is_set()) and not self.skip.is_set():
                     if time.time() - last > 2:
                         last = time.time()
                         self._report()
@@ -948,6 +1012,134 @@ class BatchWorker:
             work.close()
         print(f"\n  queue: {path.name} transcribed")
         return True
+
+
+# --------------------------------------------------------------------------- live
+def live_decoder(recognizer):
+    """samples, start sec -> [(word, time, confidence)]: the main model on one stretch."""
+    def decode(samples, start):
+        if not len(samples):
+            return []
+        result = recognizer.decode(samples)
+        return words_with_times(result, start, len(samples) / SAMPLE_RATE,
+                                result.confidences) if result.text else []
+    return decode
+
+
+def save_live(wav: Path, lines, settings, work_root, fixer=None, itn=None):
+    """
+    A live recording, once stopped: its folder in transcripts gets the lines as heard (so the
+    review page opens it without transcribing it again), the .srt and the documents (with the
+    keyword fixes). -> (WorkDir, number of subtitles, [document paths]); None if it's empty.
+    """
+    import export
+    if not wav.exists() or wav.stat().st_size <= 44:
+        wav.unlink(missing_ok=True)
+        return None
+    work = workdir.WorkDir(workdir.folder_for(wav, work_root), wav, settings)
+    work.create()
+    work.open_segments(resume=False)
+    for start, dur, words in lines:
+        work.add_segment(start, dur, words)
+    work.finish_segments()
+    fixed = [(s, d, fixer.fix(w)[0] if fixer else w) for s, d, w in lines]
+    n = write_srt(work.srt, fixed, itn)
+    docs = export.write_documents(work.srt.with_suffix(""), wav.stem, fixed, itn=itn)
+    return work, n, docs
+
+
+def run_live_console(args, sherpa_onnx, recognizer, vad_config, settings, work_root, fixer, itn_for):
+    """--live: listen to a device chosen here, print each line as it's said, until Enter."""
+    import live
+    try:
+        sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+    except (AttributeError, ValueError):
+        pass
+    devices = live.list_devices()
+    if not devices:
+        sys.exit("No microphone or sound card found.")
+    device = live.find_device(args.device, devices) if args.device else None
+    if args.device and device is None:
+        sys.exit(f"No device '{args.device}'. Run with --list-devices to see them.")
+    if device is None:
+        print("\nWhat should be transcribed?")
+        for k, d in enumerate(devices, 1):
+            print(f"  {k:2}. {'🎙' if d['kind'] == 'mic' else '🔊'} {d['label']}"
+                  + ("  (default)" if d["default"] else ""))
+        while device is None:
+            try:
+                ans = input("Number [1]: ").strip() or "1"
+            except (EOFError, KeyboardInterrupt):
+                return
+            device = live.find_device(ans, devices)
+
+    width = max(40, shutil.get_terminal_size((100, 20)).columns - 2)
+    out_lock = threading.Lock()
+    shown = {"partial": False}
+
+    def clear_partial():
+        if shown["partial"]:
+            print("\r" + " " * width + "\r", end="")
+            shown["partial"] = False
+
+    def on_line(start, text):
+        with out_lock:
+            clear_partial()
+            print(f"[{fmt_clock(start)}] {text}", flush=True)
+
+    def on_partial(text):
+        with out_lock:
+            clear_partial()
+            if text:
+                tail = text if len(text) < width - 4 else "…" + text[-(width - 6):]
+                print(f"  {tail}", end="", flush=True)
+                shown["partial"] = True
+
+    wav = live.new_recording_path()
+    session = live.LiveTranscriber(device, sherpa_onnx, vad_config, live_decoder(recognizer), wav,
+                                   fix=(lambda w: fixer.fix(w)[0]) if fixer else None,
+                                   on_line=on_line, on_partial=on_partial)
+    try:
+        session.start()
+    except RuntimeError as e:
+        sys.exit(str(e))
+    LIVE_ON.set()
+    print(f"\nListening to {device['label']}. Recording to {wav}")
+    print("Press Enter to stop (type p, then Enter, to pause and resume).\n")
+    while True:
+        try:
+            ans = input().strip().lower()
+        except (EOFError, KeyboardInterrupt):
+            break
+        if ans != "p":
+            break
+        with out_lock:
+            clear_partial()
+            if session.paused:
+                session.resume()
+                print("-- listening again --", flush=True)
+            else:
+                session.pause()
+                print("-- paused: p and Enter to resume, Enter to stop --", flush=True)
+    with out_lock:
+        clear_partial()
+        print("Stopping: transcribing the last words…", flush=True)
+    session.on_partial = None
+    lines = session.stop()
+    LIVE_ON.clear()
+    if session.error:
+        print(f"  ({session.error})")
+    itn = itn_for() if itn_for else None
+    saved = save_live(wav, lines, settings, work_root, fixer, itn)
+    if not saved:
+        print("Nothing was recorded.")
+        return
+    work, n, docs = saved
+    print(f"\n{fmt_clock(session.duration)} recorded, {len(lines)} lines, {n} subtitles.")
+    print(f"  recording: {wav}")
+    print(f"  subtitles: {work.srt}")
+    print(f"  document:  {', '.join(d.name for d in docs)} (same folder)")
+    print("To check it, drag the recording onto review.bat: it is already transcribed, so it opens at once.")
 
 
 def collect_inputs(items):
@@ -1012,12 +1204,37 @@ def main():
     ap.add_argument("--fresh", action="store_true",
                     help="forget saved progress (transcribed lines, review edits, other models' "
                          "guesses) and start the file over")
+    ap.add_argument("--live", action="store_true",
+                    help="transcribe live, as it is spoken: from a microphone, or what the computer "
+                         "plays on a sound card (a call, a stream). Recorded to the 'recordings' folder")
+    ap.add_argument("--device",
+                    help="with --live: the number or part of the name of the device to listen to "
+                         "(see --list-devices; default: ask)")
+    ap.add_argument("--list-devices", action="store_true",
+                    help="list the microphones and sound cards --live can listen to")
     ap.add_argument("--model-dir", default=str(SCRIPT_DIR / "models"))
     args = ap.parse_args()
 
+    if args.list_devices:
+        import live
+        try:
+            sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+        except (AttributeError, ValueError):
+            pass
+        for k, d in enumerate(live.list_devices(), 1):
+            print(f"{k:2}. {'mic     ' if d['kind'] == 'mic' else 'loopback'}  {d['label']}"
+                  + ("  (default)" if d["default"] else ""))
+        return
+    if args.live and args.review_in_terminal:
+        sys.exit("--live shows the words in this window by itself; leave out --review-in-terminal.")
+    if args.device and not args.live:
+        sys.exit("--device goes with --live.")
+
     files = collect_inputs(args.inputs)
     browsing = args.review and not args.review_in_terminal
-    if not files and not (browsing and all(Path(i).is_dir() for i in args.inputs)):
+    if args.live and not args.review:      # the console version: no files
+        files = []
+    elif not files and not (browsing and all(Path(i).is_dir() for i in args.inputs)):
         sys.exit("No audio/video files to transcribe." if args.inputs else
                  "Give audio/video files or folders (or use --review to pick them on a page).")
 
@@ -1140,6 +1357,10 @@ def main():
     sherpa_onnx, recognizer, vad_config = build_models(model_dir, args.threads, args.max_segment)
 
     settings = {"model": MODEL_NAME, "max_segment": args.max_segment}
+    if args.live and web is None:
+        run_live_console(args, sherpa_onnx, recognizer, vad_config, settings, work_root,
+                         keyword_fixer, lambda: get_itn() if args.digits else None)
+        return
     out_dir = Path(args.out_dir) if args.out_dir else None
     cli_files = {str(p.resolve()) for p in files}
 
@@ -1220,8 +1441,57 @@ def main():
         web.itn_for = lambda: get_itn() if args.digits else None
         web.batch = BatchWorker(sherpa_onnx, recognizer, vad_config, settings, work_root,
                                 lambda st: web._set(queue=st))
+
+        def process_live(device, chosen=None):
+            """
+            The page's 🎙 Live: listen to `device` and review it as the open recording (see
+            transcribe_live). Everything else waits while it listens, except the other
+            models' guesses, which wait only if the live text falls behind.
+            """
+            import live
+            session = live.LiveTranscriber(device, sherpa_onnx, vad_config, live_decoder(recognizer),
+                                           live.new_recording_path(), pause_on_loss=True)
+            session.start()                  # (raises if the device can't be opened)
+            wav = session.wav_path
+            print(f">> live: listening to {device['label']}  ->  {wav}")
+            LIVE_ON.set()
+            web.live = session
+            web.live_stop.clear()
+            try:
+                work = workdir.WorkDir(workdir.folder_for(wav, work_root), wav, settings)
+                work.create()
+                fs = workdir.clean_settings(chosen, defaults) if chosen is not None else dict(defaults)
+                workdir.save_defaults(work_root, fs)
+                defaults.update(fs)
+                work.save_settings(fs)
+                current.clear()
+                current.update(fs=fs, work=work)
+                reviewer.fixer = make_fixer(fs["keywords"])
+                reviewer.kw_path = additions_list(fs["keywords"])
+                reviewer.threshold = fs["confidence"]
+                web.configure(fs)
+                transcribe_live(session, work, reviewer, web.live_stop,
+                                lambda: get_itn() if args.digits else None)
+            finally:
+                session.stop()                 # (already stopped, unless something failed)
+                LIVE_ON.clear()
+
+        web.default_settings = lambda: dict(defaults)
+        web.open_live = bool(args.live)
+        if web.alts is not None:   # the other models wait only while the live text is behind
+            web.alts.hold = lambda: LIVE_ON.is_set() and web.live is not None and web.live.behind() > 2
+
+        def target(action, value):
+            """What the page asked for -> the next thing to work on (a path, or a live device)."""
+            if action == "live":
+                return ("live", value)
+            p = Path(value)
+            workdir.remember_folder(work_root, p.parent)
+            return p
+
         # The page decides what to work on: the files given here first (if any), then
-        # whatever is chosen in its file browser, until "Close the program" is pressed.
+        # whatever is chosen in its file browser (or a live session), until "Close the
+        # program" is pressed.
         queue = list(files)
         start = Path(args.inputs[0]) if len(args.inputs) == 1 and Path(args.inputs[0]).is_dir() else None
         web.set_folder(start or (files[0].parent if files else workdir.last_folder(work_root)))
@@ -1230,30 +1500,31 @@ def main():
         chosen = None     # settings picked for it on the page
         while True:
             if nxt is None:
-                action, path = web.wait_for_file(
+                action, value = web.wait_for_file(
                     reviewer.saved[-1] if reviewer.saved else "Choose a recording")
                 if action == "quit":
                     break
-                nxt, scratch, chosen = Path(path), action == "redo", web.picked_settings
-                workdir.remember_folder(work_root, nxt.parent)
+                nxt, scratch, chosen = target(action, value), action == "redo", web.picked_settings
             try:
-                process(nxt, ">>", always=True, from_scratch=scratch, chosen=chosen)
+                if isinstance(nxt, tuple):
+                    process_live(nxt[1], chosen)
+                else:
+                    process(nxt, ">>", always=True, from_scratch=scratch, chosen=chosen)
                 nxt, scratch, chosen = (queue.pop(0) if queue else None), False, None
             except review.SwitchFile:
                 reviewer.abandon_file()
-                action, path = web.take_pending()
+                action, value = web.take_pending()
                 if action == "quit":
                     break
                 print("\n  " + ("starting this file over" if action == "redo" else
                                "switched to another file; this one is saved and continues when reopened"))
-                nxt = Path(path) if action in ("open", "redo") else None
+                nxt = target(action, value) if action in ("open", "redo", "live") else None
                 scratch, chosen = action == "redo", web.picked_settings
-                if nxt is not None:
-                    workdir.remember_folder(work_root, nxt.parent)
             except Exception as e:  # show it on the page and go back to the file list
                 print(f"  FAILED: {e}")
                 reviewer.abandon_file()
-                reviewer.saved.append(f"Failed on {nxt.name}: {e}")
+                what = "live transcription" if isinstance(nxt, tuple) else nxt.name
+                reviewer.saved.append(f"Failed on {what}: {e}")
                 nxt = None
         web.batch.stop()                # a recording half-done in the queue carries on next time
         web.batch.idle.wait(15)

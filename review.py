@@ -760,6 +760,11 @@ class WebUI:
       GET  /fs         ?path=<folder>: its subfolders and recordings (with how far each got)
       POST /open       {path}: switch to that recording (the current one stays saved)
       POST /quit       close the program
+      GET  /live/devices          microphones and sound cards to listen to
+      POST /live/start {device, settings}  review live, as it is said (see live_begin)
+      POST /live/stop             stop listening (the review carries on)
+      POST /live/pause {paused}   pause or resume listening (same recording)
+      POST /live/device {device}  listen to another device from now on (same recording)
     """
 
     def __init__(self, open_browser=True, alts=None, media_exts=(), work_root=None, model=("", "", ""),
@@ -785,6 +790,10 @@ class WebUI:
         self.apply_settings = None         # settings -> (fixer, list for additions)
         self.keyword_lists = None          # -> {list name: entries}
         self.picked_settings = None        # settings chosen with the last /open or /redo
+        self.live = None                   # live.LiveTranscriber: listening now (or the last one)
+        self.live_stop = threading.Event() # set by the page's Stop
+        self.default_settings = None       # -> settings a new recording starts with (set by the program)
+        self.open_live = False             # show the live panel when the page opens (live.bat)
         self.open_key = None   # the part open in the editor bar: never changed automatically
         self.changes = []      # (sequence number, line id) of lines changed automatically
         self.media_exts = {e.lower() for e in media_exts}
@@ -835,8 +844,9 @@ class WebUI:
                     return
                 now = time.time()
                 q = self.state.get("queue") or {}
-                if self.last_seen is None or self.pending is not None or q.get("current") or q.get("waiting"):
-                    continue     # (a queue left running overnight keeps the program open)
+                if (self.last_seen is None or self.pending is not None or q.get("current")
+                        or q.get("waiting") or self.live_running()):
+                    continue     # (a queue left running overnight, or a live recording, keeps it open)
                 said_bye = self.bye_at is not None and self.bye_at > self.last_seen and now - self.bye_at > PAGE_BYE
                 if not (said_bye or now - self.last_seen > PAGE_GONE):
                     continue
@@ -845,6 +855,74 @@ class WebUI:
                 self.wake.set()
             if self.batch:
                 self.batch.stop()
+
+    # -- live transcription ---------------------------------------------------------
+    # A live session is opened like a recording: POST /live/start asks the program for it
+    # (the open recording stays saved, as when switching), and it becomes the recording
+    # under review, its lines arriving as they are said. POST /live/stop ends the listening;
+    # the review then carries on as for any recording.
+    def live_running(self) -> bool:
+        s = self.live
+        return s is not None and s.running
+
+    def live_devices(self):
+        """GET /live/devices"""
+        try:
+            import live
+            return {"devices": live.list_devices()}
+        except Exception as e:
+            return {"devices": [], "error": str(e)}
+
+    def live_begin(self, data):
+        """POST /live/start {device: id, settings}"""
+        import live
+        dev = next((d for d in live.list_devices() if d["id"] == data.get("device")), None)
+        if dev is None:
+            raise ValueError("that device isn't there any more; choose another")
+        with self.lock:
+            if self.live_running():
+                raise ValueError("already listening")
+            self.pending = ("live", dev)
+            chosen = data.get("settings")
+            self.picked_settings = chosen if isinstance(chosen, dict) else None
+            self.wake.set()
+        return {"ok": True}
+
+    def live_end(self, data=None):
+        """POST /live/stop"""
+        self.live_stop.set()
+        return {"ok": True}
+
+    def live_control(self, data):
+        """POST /live/pause {paused: bool}, POST /live/device {device: id}: pause or resume
+        the listening, or move it to another device, in the same recording."""
+        s = self.live
+        if s is None or not s.running or self.live_stop.is_set():
+            raise ValueError("not listening")
+        if "device" in data:
+            import live
+            dev = next((d for d in live.list_devices() if d["id"] == data.get("device")), None)
+            if dev is None:
+                raise ValueError("that device isn't there any more; choose another")
+            s.set_device(dev)
+            print(f">> live: now listening to {dev['label']}")
+        if "paused" in data:
+            if data["paused"]:
+                s.pause()
+            else:
+                s.resume()
+            print(">> live: " + ("paused" if data["paused"] else "listening again"))
+        return {"ok": True}
+
+    def live_brief(self):
+        """For /state while listening: how it's going, and the words being said now."""
+        s = self.live
+        if s is None or not s.running:
+            return None
+        snap = s.snapshot(first=1 << 30)
+        snap.pop("lines", None)
+        snap["stopping"] = self.live_stop.is_set()
+        return snap
 
     # -- jobs that run beside the review (punctuation, speakers) ---------------------
     def _start_job(self, kind, text, fn):
@@ -907,6 +985,8 @@ class WebUI:
         s, work = self.session, self.work
         if s is None or work is None:
             raise ValueError("nothing open")
+        if self.live_running():
+            raise ValueError("speakers can be found once the live session is stopped")
         n = data.get("n")
         if n in ("", None, 0):
             n = None
@@ -1040,8 +1120,12 @@ class WebUI:
         self.state["settings"] = dict(fs)
 
     def file_settings(self, path):
-        """GET /file_settings: what the "Before starting" dialog shows (outside the lock)."""
-        fs, saved = self.settings_for(path)
+        """GET /file_settings: what the "Before starting" dialog shows (outside the lock).
+        path "live": for a new live session."""
+        if path == "live" and self.default_settings is not None:
+            fs, saved = self.default_settings(), False
+        else:
+            fs, saved = self.settings_for(path)
         lists = self.keyword_lists()
         return {"settings": fs, "saved": saved, "has_alts": self.alts is not None,
                 "lists": [{"name": n, "entries": c} for n, c in lists.items()]}
@@ -1199,6 +1283,7 @@ class WebUI:
         with self.lock:
             session.transcribing = False
             self.state.update(transcribing=False, decoded=round(session.duration, 1),
+                              duration=round(session.duration, 1),   # (a live one grew)
                               status="Transcribed", progress=None)
             # punctuation, if not done yet for every line (it takes about 20 s an hour)
             if not self.state["job"] and session.punct_lines < len(session.segments) and session.segments:
@@ -1476,6 +1561,8 @@ def _make_handler(ui):
                     return self._json(ui.list_folder(parse_qs(url.query).get("path", [""])[0]))
                 except ValueError as e:
                     return self._json({"error": str(e)}, 400)
+            if url.path == "/live/devices":
+                return self._json(ui.live_devices())
             if url.path == "/search":      # (reads saved transcripts from disk: outside the lock)
                 qs = parse_qs(url.query)
                 return self._json(ui.search(qs.get("q", [""])[0], qs.get("scope", ["this"])[0]))
@@ -1483,7 +1570,8 @@ def _make_handler(ui):
                 if url.path == "/state":   # (+ how the other models' setup is going)
                     ui.last_seen = time.time()
                     return self._json({**ui.state,
-                                       "alts_status": dict(ui.alts.status) if ui.alts else {}})
+                                       "alts_status": dict(ui.alts.status) if ui.alts else {},
+                                       "live": ui.live_brief(), "open_live": ui.open_live})
                 if url.path == "/doc":
                     try:
                         first = max(0, int(parse_qs(url.query).get("from", ["0"])[0]))
@@ -1523,6 +1611,8 @@ def _make_handler(ui):
                 "/place": ui.set_place, "/queue": ui.queue_add, "/queue_stop": lambda d: ui.queue_stop(),
                 "/open": lambda d: ui.request(d, "open"), "/redo": lambda d: ui.request(d, "redo"),
                 "/quit": lambda d: ui.request(d, "quit"),
+                "/live/start": ui.live_begin, "/live/stop": ui.live_end,
+                "/live/pause": ui.live_control, "/live/device": ui.live_control,
             }
             if not self._authorised(url) or (url.path not in routes and url.path != "/bye"):
                 return self._send(403, b"forbidden", "text/plain")
@@ -1542,7 +1632,9 @@ def _make_handler(ui):
                 data = json.loads(raw or "{}")
                 if not isinstance(data, dict):
                     raise ValueError("bad request")
-                if url.path in ("/queue", "/queue_stop"):    # (the queue takes the lock itself)
+                if url.path in ("/queue", "/queue_stop", "/live/start", "/live/stop",
+                                "/live/pause", "/live/device"):
+                    # (these take their own locks; stopping live takes a few seconds)
                     res = routes[url.path](data)
                 else:
                     with ui.lock:

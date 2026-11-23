@@ -124,7 +124,7 @@
   .bar { height: 3px; background: var(--line); }
   .bar > div { height: 100%; width: 0; background: var(--accent); transition: width .3s; }
 
-  main { max-width: 920px; margin: 0 auto; padding: 16px 16px 280px; }
+  main { max-width: 920px; margin: 0 auto; padding: 16px 16px max(280px, calc(var(--dock-h, 0px) + 60px)); }
   .hint { font-size: 13px; color: var(--muted); margin: 0 0 12px; }
   .doc { background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 8px 0; }
   .seg { display: flex; gap: 12px; padding: 6px 18px; direction: rtl; align-items: baseline; }
@@ -157,28 +157,61 @@
   /* editor dock */
   .dock { position: fixed; left: 0; right: 0; bottom: 0; z-index: 6; background: var(--card);
           border-top: 1px solid var(--line); box-shadow: var(--shadow); }
-  .dock-in { max-width: 920px; margin: 0 auto; padding: 12px 16px 14px; }
-  .meta { display: flex; gap: 14px; flex-wrap: wrap; align-items: center; font-size: 13px; color: var(--muted);
-          margin-bottom: 8px; }
-  .meta b { color: var(--text); font-weight: 600; }
-  .meta .spacer { flex: 1; }
-  .player { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 8px; }
-  audio { flex: 1 1 260px; min-width: 0; height: 34px; }
+  .dock-in { max-width: 920px; margin: 0 auto; padding: 8px 16px 10px; }
+  .dock-head { display: flex; align-items: center; gap: 6px 12px; flex-wrap: wrap; margin-bottom: 6px; font-size: 13px; }
+  .dock-head .spacer, .dock-foot .spacer { flex: 1; }
+  .meta { display: inline-flex; gap: 10px; flex-wrap: wrap; align-items: center; color: var(--muted); }
+  .meta > * + *::before { content: "·"; margin-right: 10px; opacity: .6; }
+  .meta b { color: var(--text); font-weight: 600; font-variant-numeric: tabular-nums; }
+  .meta #dCount:empty { display: none; }
+  button.ghost { background: transparent; border-color: transparent; color: var(--muted); padding: 3px 8px; font-size: 13px; }
+  button.ghost:hover { background: var(--btn); color: var(--text); filter: none; }
+  .close-x { font-size: 15px; line-height: 1; padding: 5px 9px; }
+  .clip { display: inline-flex; align-items: center; gap: 8px; }
+  .clip audio { display: none; }
+  .clip-btn { width: 30px; height: 30px; padding: 0; border-radius: 50%; font-size: 12px; line-height: 1;
+              background: var(--accent); color: var(--accent-text); border-color: var(--accent); }
+  .clip-track { position: relative; width: 140px; height: 6px; border-radius: 3px; background: var(--line); cursor: pointer; overflow: hidden; }
+  .clip-track span { position: absolute; inset: 0 auto 0 0; width: 0; background: var(--accent); transition: width .25s linear; }
   label.inline { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; color: var(--muted); }
   input[type=text] { width: 100%; font-size: 22px; padding: 8px 12px; border-radius: 10px; direction: rtl;
                      border: 2px solid var(--line); background: var(--bg); color: var(--text); }
   input[type=text]:focus { outline: none; border-color: var(--accent); }
-  .add { margin: 8px 0 10px; display: flex; gap: 16px; flex-wrap: wrap; font-size: 13px; align-items: center; }
-  .add label { display: inline-flex; align-items: center; gap: 5px; }
-  .add .disabled { color: var(--muted); }
+  .edit-row { display: flex; gap: 8px; align-items: stretch; }
+  .edit-box { position: relative; flex: 1; min-width: 0; display: flex; }
+  .edit-row input[type=text] { flex: 1; min-width: 0; font-size: 21px; padding: 5px 12px; }
+  /* "always change X → Y": inside the text box, on its left, so nothing moves when "rule" is chosen */
+  .edit-box .rule-preview { position: absolute; left: 12px; top: 50%; transform: translateY(-50%); max-width: 55%;
+                            white-space: nowrap; overflow: hidden; text-overflow: ellipsis; pointer-events: none; font-size: 13px; }
+  .edit-row #save { padding: 0 16px; }
+  .dock-foot { display: flex; align-items: center; gap: 6px 14px; flex-wrap: wrap; margin-top: 8px; font-size: 13px; }
+  .dock-foot button { padding: 4px 10px; font-size: 13px; }
+  .dock-foot .mark-row { margin: 0; }
+  .add { display: inline-flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+  .seg-ctl { display: inline-flex; border: 1px solid var(--line); border-radius: 8px; overflow: hidden; }
+  .seg-ctl label { position: relative; padding: 3px 10px; cursor: pointer; color: var(--muted); }
+  .seg-ctl label + label { border-left: 1px solid var(--line); }
+  .seg-ctl input { position: absolute; opacity: 0; pointer-events: none; }
+  .seg-ctl label:has(input:checked) { background: var(--accent); color: var(--accent-text); }
+  .seg-ctl label:has(input:focus-visible) { outline: 2px solid var(--accent); outline-offset: -2px; }
+  .seg-ctl label.disabled { opacity: .45; cursor: default; }
+  .dock:not(:has(input[name=add][value=rule]:checked)) .rule-preview { display: none; }
   .rule-preview { color: var(--muted); }
   .rule-preview bdi { font-family: "Vazirmatn", "Segoe UI", Tahoma, sans-serif; font-size: 15px; color: var(--text);
                       background: var(--btn); border: 1px solid var(--line); border-radius: 5px; padding: 0 6px; }
   .actions { display: flex; gap: 8px; flex-wrap: wrap; }
-  .alts { margin: 8px 0 0; display: grid; gap: 4px; }
-  .alt { display: flex; gap: 10px; align-items: center; font-size: 13px; flex-wrap: wrap; min-height: 30px; }
-  .alt-name { color: var(--muted); min-width: 64px; }
+  .alts { margin: 6px 0 0; display: grid; gap: 2px 18px; grid-template-columns: repeat(auto-fit, minmax(330px, 1fr)); }
+  .alt { display: flex; gap: 8px; align-items: center; font-size: 13px; flex-wrap: wrap; min-height: 28px; }
+  .alt-name { color: var(--muted); min-width: 40px; }
   .alt-name kbd { margin-left: 0; margin-right: 4px; }
+  /* while listening: the words being said now, on top of the editor */
+  .dock-live { display: flex; align-items: center; gap: 10px; padding: 6px 16px; direction: rtl; justify-content: flex-start;
+               font-family: "Vazirmatn", "Segoe UI", Tahoma, sans-serif; font-size: 17px; color: var(--muted);
+               border-bottom: 1px solid var(--line); background: color-mix(in srgb, var(--bg) 60%, var(--card));
+               white-space: nowrap; overflow: hidden; }
+  .dock-live #dockLiveText { overflow: hidden; text-overflow: ellipsis; direction: rtl; }
+  .dock-live .dot { background: #c92a2a; flex: 0 0 auto; }
+  .dock-live.paused .dot { background: var(--muted); animation: none; }
   .chip { font-family: "Vazirmatn", "Segoe UI", Tahoma, sans-serif; font-size: 17px; padding: 1px 12px; border-radius: 999px;
           background: var(--btn); border: 1px solid var(--line); color: var(--text); cursor: pointer; direction: rtl; }
   .chip:hover { border-color: var(--accent); }
@@ -217,6 +250,8 @@
 
   /* header menu */
   body:not(.has-doc) .doc-only { display: none !important; }
+  /* with no recording open (or while listening) the menu would hold only the shortcuts: show them as a button */
+  body.has-doc:not(.lv-open) .no-doc-only { display: none !important; }
   .menu-wrap { position: relative; }
   .menu { position: absolute; right: 0; top: calc(100% + 6px); z-index: 12; min-width: 270px; padding: 6px;
           background: var(--card); border: 1px solid var(--line); border-radius: 10px; box-shadow: 0 10px 30px rgba(0,0,0,.25); }
@@ -261,10 +296,39 @@
   .cp-file { color: var(--muted); font-size: 12px; max-width: 180px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
   /* shortcuts */
-  .keys { display: grid; grid-template-columns: auto 1fr; gap: 6px 14px; font-size: 14px; margin-bottom: 16px; }
+  .keys-modal { max-width: 620px; }
+  .keys { display: grid; grid-template-columns: max-content 1fr; gap: 8px 18px; align-items: baseline;
+          font-size: 14px; margin-bottom: 16px; }
+  .keys .kk { white-space: nowrap; color: var(--muted); font-size: 12px; }
   .keys kbd { margin: 0; font-size: 12px; white-space: nowrap; }
   .modal input[type=text], .modal input[type=number] { width: 100%; font-size: 16px; padding: 7px 10px; border-radius: 8px;
          border: 1px solid var(--line); background: var(--bg); color: var(--text); margin-bottom: 14px; direction: auto; }
+  /* live transcription (🎙 Live) */
+  #lvBtn { flex: 0 0 auto; }
+  #lvBtn.on { color: #fff; background: #c92a2a; border-color: #c92a2a; font-variant-numeric: tabular-nums; }
+  #lvBtn.on::before { content: ""; display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: #fff;
+                      margin-right: 7px; vertical-align: 1px; animation: pulse 1.2s ease-in-out infinite; }
+  body.lv-open :is(#playerRow, #next, #finish, #count, #autoCount, #liveHead, .doc-only) { display: none !important; }
+  .lv-top { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-bottom: 10px; }
+  .lv-top select { flex: 1 1 260px; min-width: 0; font-size: 14px; padding: 7px 8px; }
+  .lv-bar { max-width: 920px; margin: 0 auto; padding: 0 16px 10px; display: flex; align-items: center; gap: 8px 12px;
+            flex-wrap: wrap; font-size: 13px; color: var(--muted); }
+  .lv-rec { display: inline-flex; align-items: center; gap: 7px; color: #c92a2a; font-weight: 600; font-variant-numeric: tabular-nums; }
+  .lv-rec .dot { background: #c92a2a; }
+  .lv-meter { width: 100px; height: 6px; border-radius: 3px; background: var(--line); overflow: hidden; flex: 0 0 auto; }
+  .lv-meter div { height: 100%; width: 0; background: var(--edited); transition: width .1s linear; }
+  #lvNote { flex: 1 1 200px; min-width: 0; }
+  .lv-warn { color: var(--warn); }
+  #lvBarDev { flex: 0 1 260px; min-width: 0; font-size: 13px; padding: 3px 6px; }
+  #lvPause { padding: 4px 12px; font-size: 13px; font-weight: 600; min-width: 92px; }
+  .lv-bar.paused .lv-rec { color: var(--muted); }
+  .lv-bar.paused .lv-rec .dot { background: var(--muted); animation: none; }
+  #lvBtn.on.paused { background: var(--muted); border-color: var(--muted); }
+  #lvBtn.on.paused::before { display: none; }
+  #lvStop { color: #fff; background: #c92a2a; border-color: #c92a2a; font-weight: 600; padding: 4px 12px; font-size: 13px; }
+  .live-foot.lv-speaking { direction: rtl; color: var(--muted); font-family: "Vazirmatn", "Segoe UI", Tahoma, sans-serif; font-size: 20px; }
+  .live-foot.lv-speaking #liveFootText::after { content: "▍"; color: var(--accent); animation: pulse 1s steps(1) infinite; margin-right: 2px; }
+  .live-foot.lv-speaking .dot { background: #c92a2a; }
   #fsQueueBox { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; margin: 0 0 10px; font-size: 13px; color: var(--muted); }
 </style>
 </head>
@@ -272,6 +336,7 @@
 <header>
   <div class="head">
     <button id="filesBtn" type="button" title="Open another recording (this one stays saved)">☰ Files</button>
+    <button id="lvBtn" type="button" title="Transcribe live, as it is spoken: from a microphone, or what the computer plays (a call, a stream, a video)">🎙 Live</button>
     <h1 id="file">Goosh-o-Ghalam</h1>
     <a class="model-tag hidden" id="modelTag" target="_blank" rel="noopener"></a>
     <span class="count hidden" id="liveHead"></span>
@@ -283,7 +348,8 @@
     <button id="undoBtn" class="icon-btn doc-only" type="button" disabled title="Nothing to undo">↶</button>
     <button id="searchBtn" class="icon-btn doc-only" type="button" title="Find (and replace) words, in this recording or all of them (Ctrl+F)">🔍</button>
     <button id="next" class="hidden" type="button">Next unsure<kbd>N</kbd></button>
-    <div class="menu-wrap">
+    <button id="keysIcon" class="icon-btn no-doc-only" type="button" title="Keyboard shortcuts (?)">⌨</button>
+    <div class="menu-wrap doc-only">
       <button id="menuBtn" type="button" aria-haspopup="true" aria-expanded="false" title="Settings, punctuation, speakers, export, close">⋯ More</button>
       <div class="menu hidden" id="menu" role="menu">
         <button class="mi doc-only" id="setBtn" type="button" title="Keyword lists, thresholds and other settings of this recording">⚙ Settings of this recording</button>
@@ -318,6 +384,14 @@
     </select>
     <label class="inline" title="Hide the parts marked off-topic, and skip them when playing"><input type="checkbox" id="hideOff"> hide off-topic</label>
   </div>
+  <div class="lv-bar hidden" id="lvBar">
+    <span class="lv-rec"><span class="dot"></span><span id="lvClock">00:00</span></span>
+    <span class="lv-meter" title="Sound level"><div id="lvMeter"></div></span>
+    <select id="lvBarDev" aria-label="What it listens to" title="Listen to another device from now on, in the same recording"></select>
+    <span id="lvNote"></span>
+    <button id="lvPause" type="button" title="Pause listening: nothing is recorded until you resume, in the same recording">⏸ Pause</button>
+    <button id="lvStop" type="button" title="Stop listening for good. The review carries on, and the whole recording can then be played">■ Stop</button>
+  </div>
   <audio id="main" preload="auto"></audio>
   <div class="bar"><div id="progress"></div></div>
 </header>
@@ -350,6 +424,20 @@
     </div>
   </section>
 
+  <section id="lvPanel" class="hidden">
+    <div class="lv-top">
+      <select id="lvDev" aria-label="What to listen to"></select>
+      <button id="lvRefresh" class="icon-btn" type="button" title="Look for devices again (after plugging one in)">↻</button>
+      <button id="lvStart" class="primary" type="button">● Start…</button>
+      <button id="lvBack" type="button">Back</button>
+    </div>
+    <p class="fs-status lv-warn" id="lvPanelNote"></p>
+    <p class="hint">Choose what to listen to. A <b>microphone</b> hears you or the room; <b>What plays on…</b> hears whatever the computer plays through that sound card (a video call, a live stream, a video in the browser).</p>
+    <p class="hint">The transcript then appears like any recording's, a line at a time as it is said, and you can review it while it listens: unsure words are highlighted, click a word to correct it, and the other models' guesses follow a little later.
+      Clips aren't played by themselves while listening (press ▶ to hear one; use headphones, or it is recorded too). The whole recording can be played once you stop.</p>
+    <p class="hint">The sound is saved in the program's <code>recordings</code> folder as it comes in. While listening, other transcription waits so this one keeps up.</p>
+  </section>
+
   <section id="review" class="hidden">
     <p class="hint">Highlighted words are the ones the model was unsure about. Click any word to hear it and edit it;
       Shift+click selects several words. The player above plays the whole recording and highlights each word as it is spoken; click a time to play from that line.</p>
@@ -359,25 +447,25 @@
 </main>
 
 <div class="dock hidden" id="dock">
+  <div class="dock-live hidden" id="dockLive"><span class="dot"></span><span id="dockLiveText"></span></div>
   <div class="dock-in">
-    <div class="meta">
-      <span>at <b id="dTime"></b></span>
-      <span>confidence <b id="dConf"></b></span>
-      <span class="hidden" id="dModelWrap">heard by <a class="model-link" id="dModel" target="_blank" rel="noopener"></a></span>
-      <span id="dCount"></span>
+    <div class="dock-head">
+      <span class="clip edit-only">
+        <audio id="audio" preload="auto"></audio>
+        <button id="clipPlay" class="clip-btn" type="button" title="Play or pause the clip">▶</button>
+        <span class="clip-track" id="clipTrack" title="Click to play from there"><span id="clipFill"></span></span>
+      </span>
+      <button id="replay" class="ghost edit-only" type="button" title="Play the clip again from the start (Ctrl+Space)">↺ Replay</button>
+      <label class="inline edit-only" title="Play the clip at 3/4 speed"><input type="checkbox" id="slow"> slower</label>
+      <span class="meta">
+        <b id="dTime"></b>
+        <span><b id="dConf"></b> sure</span>
+        <span class="hidden" id="dModelWrap">by <a class="model-link" id="dModel" target="_blank" rel="noopener"></a></span>
+        <span id="dCount"></span>
+      </span>
+      <span class="play-hint hidden" id="playHint"></span>
       <span class="spacer"></span>
-      <button id="close" type="button">Close<kbd>Esc</kbd></button>
-    </div>
-    <div class="player">
-      <audio id="audio" class="edit-only" controls preload="auto"></audio>
-      <button id="replay" class="edit-only" type="button">Replay<kbd>Ctrl+Space</kbd></button>
-      <label class="inline edit-only"><input type="checkbox" id="slow"> slower</label>
-      <span class="play-hint hidden" id="playHint">Click ▶ to play (the browser blocked autoplay).</span>
-    </div>
-    <div class="mark-row">
-      <button id="markBtn" type="button" title="Leave the selected words out of the lesson-only files">Mark off-topic<kbd>M</kbd></button>
-      <button id="unmarkBtn" type="button">Unmark<kbd>Shift+M</kbd></button>
-      <span class="muted mark-hint">drag across words (or Shift+click) to select across lines</span>
+      <button id="close" class="ghost close-x" type="button" title="Close (Esc)">✕</button>
     </div>
     <div class="auto-note hidden edit-only" id="autoNote">
       <span class="auto-nav"><button id="autoPrev" type="button" title="Previous automatic change">‹</button><span id="autoPos"></span><button id="autoNext" type="button" title="Next automatic change">›</button></span>
@@ -388,21 +476,34 @@
       <span id="origText"></span>
       <button id="origBack" type="button">Put back what it heard</button>
     </div>
-    <input type="text" id="text" class="fa edit-only" autocomplete="off" spellcheck="false" aria-label="Correct text">
-    <div class="alts hidden" id="alts"></div>
-    <div class="add edit-only">
-      <span class="muted">Also add to <span id="kwFile">keywords.txt</span>:</span>
-      <label><input type="radio" name="add" value="" checked> no</label>
-      <label><input type="radio" name="add" value="keyword"> as a keyword</label>
-      <label id="ruleLabel"><input type="radio" name="add" value="rule"> as a rule
-        <span class="rule-preview" id="rulePreview"></span></label>
-    </div>
-    <div class="actions edit-only">
+    <div class="edit-row edit-only">
+      <span class="edit-box">
+        <input type="text" id="text" class="fa" autocomplete="off" spellcheck="false" aria-label="Correct text">
+        <span class="rule-preview" id="rulePreview" aria-live="polite"></span>
+      </span>
       <button class="primary" id="save" type="button">Save<kbd>Enter</kbd></button>
-      <button id="keep" type="button">Keep as heard</button>
-      <button id="blank" type="button">Leave blank […]<kbd>Ctrl+B</kbd></button>
-      <button class="danger" id="delete" type="button">Delete words</button>
-      <button id="replAll" class="hidden" type="button" title="Put what you typed in place of every other occurrence of these words in this recording too"></button>
+    </div>
+    <div class="alts hidden" id="alts"></div>
+    <div class="dock-foot">
+      <span class="actions edit-only">
+        <button id="keep" type="button" title="The words are right as heard">Keep as heard</button>
+        <button id="blank" type="button" title="Can't make it out: leave […] (Ctrl+B)">Leave blank […]</button>
+        <button class="danger" id="delete" type="button">Delete</button>
+        <button id="replAll" class="hidden" type="button" title="Put what you typed in place of every other occurrence of these words in this recording too"></button>
+      </span>
+      <span class="mark-row">
+        <button id="markBtn" type="button" title="Leave the selected words out of the lesson-only files (M). Drag across words, or Shift+click, to select across lines">Off-topic<kbd>M</kbd></button>
+        <button id="unmarkBtn" type="button" title="Shift+M">Unmark</button>
+      </span>
+      <span class="spacer"></span>
+      <span class="add edit-only" role="radiogroup" aria-label="Also add to the keyword list">
+        <span class="muted" title="Also add what you typed to this keyword list">add to <span id="kwFile">keywords.txt</span></span>
+        <span class="seg-ctl">
+          <label><input type="radio" name="add" value="" checked>no</label>
+          <label title="Spell it like this whenever it is heard"><input type="radio" name="add" value="keyword">keyword</label>
+          <label id="ruleLabel" title="Always change these words into what you typed"><input type="radio" name="add" value="rule">rule</label>
+        </span>
+      </span>
     </div>
   </div>
 </div>
@@ -447,22 +548,22 @@
 </div>
 
 <div class="modal-bg hidden" id="keysModal">
-  <div class="modal" role="dialog" aria-labelledby="keysTitle">
+  <div class="modal keys-modal" role="dialog" aria-labelledby="keysTitle">
     <h2 id="keysTitle">Keyboard shortcuts</h2>
     <div class="keys">
-      <kbd>Space</kbd> or <kbd>K</kbd><span>play / pause the recording</span>
-      <kbd>← →</kbd><span>back / forward 5 seconds</span>
-      <kbd>J</kbd> <kbd>L</kbd><span>back / forward 10 seconds</span>
-      <kbd>Shift + &lt; &gt;</kbd><span>slower / faster</span>
-      <kbd>N</kbd><span>next unsure part (after the selection, or after where the player is)</span>
-      <kbd>Enter</kbd><span>save the correction</span>
-      <kbd>Esc</kbd><span>close the editor bar or a dialog</span>
-      <kbd>Ctrl + Space</kbd><span>replay the selected words</span>
-      <kbd>Ctrl + B</kbd><span>leave the selected words blank […]</span>
-      <kbd>M</kbd> <kbd>Shift + M</kbd><span>mark / unmark the selected words off-topic</span>
-      <kbd>Ctrl + Z</kbd><span>undo the last change</span>
-      <kbd>Ctrl + F</kbd><span>find (and replace)</span>
-      <kbd>?</kbd><span>this list</span>
+      <span class="kk"><kbd>Space</kbd> or <kbd>K</kbd></span><span>play / pause the recording</span>
+      <span class="kk"><kbd>← →</kbd></span><span>back / forward 5 seconds</span>
+      <span class="kk"><kbd>J</kbd> / <kbd>L</kbd></span><span>back / forward 10 seconds</span>
+      <span class="kk"><kbd>Shift + &lt; &gt;</kbd></span><span>slower / faster</span>
+      <span class="kk"><kbd>N</kbd></span><span>next unsure part (after the selection, or after where the player is)</span>
+      <span class="kk"><kbd>Enter</kbd></span><span>save the correction</span>
+      <span class="kk"><kbd>Esc</kbd></span><span>close the editor bar or a dialog</span>
+      <span class="kk"><kbd>Ctrl + Space</kbd></span><span>replay the selected words</span>
+      <span class="kk"><kbd>Ctrl + B</kbd></span><span>leave the selected words blank […]</span>
+      <span class="kk"><kbd>M</kbd> / <kbd>Shift + M</kbd></span><span>mark / unmark the selected words off-topic</span>
+      <span class="kk"><kbd>Ctrl + Z</kbd></span><span>undo the last change</span>
+      <span class="kk"><kbd>Ctrl + F</kbd></span><span>find (and replace)</span>
+      <span class="kk"><kbd>?</kbd></span><span>this list</span>
     </div>
     <p>Shift+click or drag across words to select several, also across lines.</p>
     <div class="actions"><button class="primary" id="keysOk" type="button">OK</button></div>
@@ -698,6 +799,8 @@ function setCounts(c) {
   $("liveHead").classList.toggle("hidden", !doc.transcribing);
   $("liveFoot").classList.toggle("hidden", !doc.transcribing);
   $("liveFootText").textContent = `Transcribing… ${fmtTime(doc.decoded)} of ${fmtTime(doc.duration)}. New lines appear here as they are ready.`;
+  $("liveFoot").classList.remove("lv-speaking");
+  lvFoot();                     // (live: the words being said now)
   playerUI();
   // paused at the end of what is transcribed so far: carry on once there is more
   if (waitingForMore && main.currentTime < available() - 1) { waitingForMore = false; main.play().catch(() => {}); }
@@ -995,8 +1098,11 @@ function updateRulePreview() {
   const typed = $("text").value.trim() || "…";
   const p = $("rulePreview");
   p.textContent = "";
-  if (ruleOk(heard)) p.append("(always change ", bdi(heard), " → ", bdi(typed), ")");
+  if (ruleOk(heard)) p.append("always change ", bdi(heard), " → ", bdi(typed));
   else p.append("(not possible: ", bdi(heard), " is too short)");
+  $("ruleLabel").title = p.textContent;
+  // what you type stays clear of the preview (shown only while "rule" is chosen)
+  $("text").style.paddingLeft = p.offsetWidth ? (p.offsetWidth + 24) + "px" : "";
 }
 
 // ------------------------------------------------------------------ full player
@@ -1202,18 +1308,43 @@ async function playRange(a, b) {
     if (clipUrl) URL.revokeObjectURL(clipUrl);
     clipUrl = URL.createObjectURL(blob);
     audio.src = clipUrl;
+    if (liveNow() && !lastState.live.paused) {   // it would be heard by the microphone, or recorded from the sound card
+      $("playHint").textContent = "press ▶ to hear it";
+      $("playHint").title = "Not played by itself while listening: the microphone would hear it, or the sound card record it. Use headphones.";
+      $("playHint").classList.remove("hidden");
+      return;
+    }
     await replay();
   } catch (e) { /* ignore */ }
 }
-async function replay() {
+async function replay(fromStart = true) {
   const a = $("audio");
   if (!a.src) return;
   main.pause();                 // one thing playing at a time
   a.playbackRate = $("slow").checked ? 0.75 : 1;
-  a.currentTime = 0;
+  if (fromStart || a.ended) a.currentTime = 0;
   try { await a.play(); $("playHint").classList.add("hidden"); }
-  catch (e) { $("playHint").classList.remove("hidden"); }
+  catch (e) { $("playHint").textContent = "press ▶ to play (the browser blocked autoplay)"; $("playHint").classList.remove("hidden"); }
 }
+// The editor's own small player: ▶/❚❚ and a bar to click into.
+(function clipPlayer() {
+  const a = $("audio"), fill = $("clipFill"), btn = $("clipPlay");
+  const show = () => {
+    fill.style.width = (a.duration ? 100 * a.currentTime / a.duration : 0) + "%";
+    btn.textContent = a.paused ? "▶" : "❚❚";
+    btn.title = a.paused ? "Play the clip" : "Pause";
+  };
+  ["timeupdate", "play", "pause", "ended", "loadedmetadata", "emptied", "seeked"].forEach((e) => a.addEventListener(e, show));
+  btn.onclick = () => (a.paused ? replay(false) : a.pause());
+  $("clipTrack").onclick = (e) => {
+    if (!a.duration) return;
+    const r = e.currentTarget.getBoundingClientRect();
+    a.currentTime = a.duration * Math.min(1, Math.max(0, (e.clientX - r.left) / r.width));
+    if (a.paused) replay(false);
+  };
+})();
+// The page leaves room at the bottom for the editor, however tall it is.
+new ResizeObserver(() => document.documentElement.style.setProperty("--dock-h", $("dock").offsetHeight + "px")).observe($("dock"));
 
 // ------------------------------------------------------------------ navigation + edits
 function nextUnsure(fromSeg, fromI) {
@@ -1351,11 +1482,11 @@ async function loadDoc() {
   spkOf = new Map();
   $("doc").textContent = "";
   $("waiting").classList.add("hidden");
-  if (!browserOpen) $("review").classList.remove("hidden");
+  if (!browserOpen && !lvOpen) $("review").classList.remove("hidden");
   $("fsBack").classList.remove("hidden");
   document.body.classList.add("has-doc");
-  ["count", "next", "finish", "playerRow"].forEach((id) => $(id).classList.remove("hidden"));
-  if (main.getAttribute("data-file") !== String(fileId)) {
+  ["count", "next", "finish"].concat(liveNow() ? [] : ["playerRow"]).forEach((id) => $(id).classList.remove("hidden"));
+  if (main.getAttribute("data-file") !== String(fileId) && !liveNow()) {
     main.setAttribute("data-file", String(fileId));
     main.src = q(`/audio.wav?f=${fileId}`);
     main.playbackRate = Number($("speed").value) || 1;
@@ -1474,7 +1605,9 @@ async function loadMore() {
   const from = doc.segments.length;
   const d = await api(`/doc?from=${from}`);
   if (!d.segments || d.file_id !== fileId || !doc) return;
+  const atEnd = window.innerHeight + window.scrollY >= document.documentElement.scrollHeight - 220;
   appendSegs(d.segments);
+  if (liveNow() && atEnd && !sel) window.scrollTo({ top: document.documentElement.scrollHeight, behavior: "smooth" });
   setCounts(d);
   if (awaitingNext && !sel && main.paused) {   // don't interrupt the player
     const n = nextUnsure(d.segments.length ? d.segments[0].id : undefined, 0);
@@ -1512,8 +1645,11 @@ async function poll() {
     return showWaiting((s.status || "Finished.").trim() + "\nYou can close this tab.", false);
   }
   showJob(s);
+  lvHead(s);
+  lvFoot();
   try {
-    if (s.reviewing && s.file_id !== doneFileId) {
+    if (lvOpen) {                 // the live panel stays up; the open recording waits behind it
+    } else if (s.reviewing && s.file_id !== doneFileId) {
       if (!doc || s.file_id !== fileId) { await loadDoc(); docRev = s.doc_rev; }
       else if (s.doc_rev > docRev) { docRev = s.doc_rev; await refreshAll(); }
       else if (s.lines > doc.segments.length) await loadMore();
@@ -1531,7 +1667,7 @@ async function poll() {
       showWaiting((s.status || "Working…") + prog, true, s.progress);
     }
   } catch (e) { /* try again on the next poll */ }
-  setTimeout(poll, 500);
+  setTimeout(poll, liveNow() ? 300 : 500);
 }
 
 // "Second opinions: Nava – downloading 35% of 1.6 GB… · Vosk – ready" (only while not all ready)
@@ -1558,6 +1694,7 @@ function statusBadge(f) {
   return b;
 }
 async function openBrowser(path, nothingOpen = false) {
+  if (lvOpen) lvHide();
   $("changesPanel").classList.add("hidden");
   $("searchPanel").classList.add("hidden");
   browserOpen = true;
@@ -1673,6 +1810,7 @@ function askSettings(path, title, okLabel) {
   });
 }
 async function openFile(f) {
+  if (!lvConfirmLeave("open " + f.name)) return;
   const settings = await askSettings(f.path, `Before starting: ${f.name}`, "Start");
   if (!settings) return;
   try {
@@ -1688,6 +1826,7 @@ async function openFile(f) {
 async function startOver(path, name) {
   if (!confirm(`Start ${name} over from scratch?\n\nThis deletes its transcript, your edits and off-topic marks, ` +
                "the other models' guesses and its subtitle files, then transcribes it again. It can't be undone.")) return;
+  if (!lvConfirmLeave("start " + name + " over")) return;
   const settings = await askSettings(path, `Start over: ${name}`, "Start over");
   if (!settings) return;
   try {
@@ -1715,7 +1854,8 @@ $("fsBack").onclick = closeBrowser;
 $("fsGo").onclick = () => loadFolder($("fsPath").value.trim());
 $("fsPath").addEventListener("keydown", (e) => { if (e.key === "Enter") { e.preventDefault(); loadFolder($("fsPath").value.trim()); } });
 $("quitBtn").onclick = async () => {
-  if (!confirm("Close the program? Everything is saved; unfinished files carry on when you open them again.")) return;
+  if (!confirm((liveNow() ? "Live transcription is on: it will be stopped and saved first.\n\n" : "") +
+               "Close the program? Everything is saved; unfinished files carry on when you open them again.")) return;
   try { await api("/quit", {}); } catch (e) { /* it's closing */ }
 };
 
@@ -1795,7 +1935,7 @@ function ask({ title, text = "", value = "", placeholder = "", ok = "OK", type =
   });
 }
 function showKeys(show = true) { $("keysModal").classList.toggle("hidden", !show); if (show) $("keysOk").focus(); }
-$("keysBtn").onclick = () => showKeys();
+$("keysBtn").onclick = $("keysIcon").onclick = () => showKeys();
 $("keysOk").onclick = () => showKeys(false);
 
 // ------------------------------------------------------------------ undo
@@ -1833,6 +1973,223 @@ async function refreshAll() {
   setCounts(d);
   if (sel) paintSel();
 }
+
+// ------------------------------------------------------------------ live transcription (🎙 Live)
+// The panel only chooses what to listen to. A live session then opens like a recording:
+// its lines arrive in the review view as they are said, to be reviewed while it listens.
+let lvOpen = false, lvAutoOpened = false, lvWasLive = false, lastState = {};
+const lvStore = { get(k) { try { return localStorage.getItem(k); } catch (e) { return null; } },
+                  set(k, v) { try { localStorage.setItem(k, v); } catch (e) { /* private window */ } } };
+function liveNow() { return !!(lastState && lastState.live); }
+function lvHead(s) {               // called on every /state
+  lastState = s;
+  const lv = s.live;
+  const b = $("lvBtn");
+  b.classList.toggle("on", !!lv);
+  b.classList.toggle("paused", !!(lv && lv.paused));
+  b.textContent = lv ? (lv.paused ? "⏸ " : "") + fmtTime(lv.elapsed) : "🎙 Live";
+  b.title = lv ? (lv.paused ? "Paused" : "Listening") + ": click to see the latest line"
+               : "Review live, as it is spoken: from a microphone, or what the computer plays (a call, a stream, a video)";
+  $("lvBar").classList.toggle("hidden", !lv || !doc || browserOpen || lvOpen);
+  if (lv) {
+    if (!lvWasLive) lvBarDevices();               // (just started)
+    lvWasLive = true;
+    $("lvBar").classList.toggle("paused", !!lv.paused);
+    $("lvClock").textContent = (lv.paused ? "Paused " : "") + fmtTime(lv.elapsed);
+    $("lvMeter").style.width = (lv.paused ? 0 : 100 * lv.level).toFixed(0) + "%";
+    lvBarShow(lv);
+    let note = "", warn = false;
+    if (lv.stopping) note = "Stopping: transcribing the last words…";
+    else if (lv.error) { note = lv.error; warn = true; }
+    else if (lv.notice) { note = lv.notice; warn = true; }
+    else if (lv.paused) note = "Nothing is recorded until you resume; it carries on in the same recording.";
+    else if (lv.behind > 3) note = `The computer is ${Math.round(lv.behind)} s behind; it catches up in the pauses.`;
+    else if (lv.quiet_for > 6) {
+      warn = true;
+      note = lv.kind === "loopback" ? "Nothing is playing on this device. Is the sound going to another one?"
+                                    : "No sound for a while. Is the microphone muted, or is it the right one?";
+    }
+    $("lvNote").textContent = note;
+    $("lvNote").classList.toggle("lv-warn", warn);
+    if (!lvBusy) {
+      $("lvPause").textContent = lv.paused ? "▶ Resume" : "⏸ Pause";
+      $("lvPause").disabled = !!lv.stopping;
+    }
+    $("lvBarDev").disabled = !!lv.stopping;
+    $("lvStop").disabled = !!lv.stopping;
+    $("playerRow").classList.add("hidden");       // (the whole recording plays once it's done)
+  } else if (lvWasLive && doc && !s.transcribing) {   // just stopped: the recording is complete now
+    lvWasLive = false;
+    doc.duration = Math.max(s.duration || 0, doc.decoded || 0);   // (it grew while listening)
+    main.setAttribute("data-file", String(fileId));
+    main.src = q(`/audio.wav?f=${fileId}&v=${Date.now()}`);
+    main.playbackRate = Number($("speed").value) || 1;
+    $("playerRow").classList.remove("hidden");
+    $("playHint").classList.add("hidden");
+    toast("Stopped. The whole recording can be played now; punctuation is being added.");
+  }
+  if (s.open_live && !lvAutoOpened) { lvAutoOpened = true; if (!lv && !lvOpen) lvShow(); }
+}
+// While listening: the words being said now, under the last line.
+function lvFoot() {
+  const lv = lastState.live;
+  const strip = $("dockLive");
+  strip.classList.toggle("hidden", !lv || !doc);
+  if (lv && doc) {                // (on top of the editor, which may hide the transcript's end)
+    strip.classList.toggle("paused", !!lv.paused);
+    $("dockLiveText").textContent = lv.partial || (lv.paused ? "paused" : "listening…");
+    strip.title = lv.partial ? "Being said now" : "";
+  }
+  if (!lv || !doc) return false;
+  $("liveHead").textContent = `${lv.paused ? "paused" : "listening…"} ${fmtTime(lv.elapsed)}`;
+  $("liveHead").classList.remove("hidden");
+  $("liveFoot").classList.remove("hidden");
+  $("liveFoot").classList.toggle("lv-speaking", !!lv.partial);
+  $("liveFootText").textContent = lv.partial || (lv.paused
+    ? "Paused. Press ▶ Resume in the bar at the top to go on listening, or ■ Stop to end it."
+    : "Listening… each line appears here a moment after it is said.");
+  return true;
+}
+async function lvFetchDevices() {
+  try { return await api("/live/devices"); }
+  catch (e) { return { devices: [], error: e.message }; }
+}
+function lvFillDevices(sel, devices, keep) {
+  sel.textContent = "";
+  const groups = { mic: "Microphones", loopback: "What the computer plays" };
+  for (const kind of ["mic", "loopback"]) {
+    const list = devices.filter((x) => x.kind === kind);
+    if (!list.length) continue;
+    const g = document.createElement("optgroup");
+    g.label = groups[kind];
+    for (const x of list) {
+      const o = document.createElement("option");
+      o.value = x.id;
+      o.textContent = (kind === "mic" ? "🎙 " : "🔊 ") + x.label + (x.default ? "  (default)" : "");
+      g.append(o);
+    }
+    sel.append(g);
+  }
+  if (keep && [...sel.options].some((o) => o.value === keep)) sel.value = keep;
+}
+// The live bar's device list: listen to another device from now on (same recording).
+let lvBusy = false;
+async function lvBarDevices() {
+  const sel = $("lvBarDev");
+  const d = await lvFetchDevices();
+  const cur = lastState.live;
+  lvFillDevices(sel, d.devices, cur && cur.device_id);
+  if (cur && ![...sel.options].some((o) => o.value === cur.device_id)) {   // (unplugged since)
+    const o = new Option((cur.kind === "mic" ? "🎙 " : "🔊 ") + cur.device + "  (gone)", cur.device_id);
+    sel.prepend(o);
+    sel.value = cur.device_id;
+  }
+  sel.append(new Option("↻ Look for devices again", "__refresh"));
+}
+function lvBarShow(lv) {           // the device it listens to now (unless choosing one)
+  const sel = $("lvBarDev");
+  if (document.activeElement === sel || lvBusy) return;
+  if (sel.value !== lv.device_id) {
+    if (![...sel.options].some((o) => o.value === lv.device_id)) return lvBarDevices();
+    sel.value = lv.device_id;
+  }
+}
+async function lvSwitchDevice() {
+  const sel = $("lvBarDev");
+  const lv = lastState.live;
+  if (!lv) return;
+  if (sel.value === "__refresh") { sel.value = lv.device_id; sel.blur(); return lvBarDevices(); }
+  if (sel.value === lv.device_id) return;
+  const label = sel.selectedOptions[0]?.textContent.replace(/^\S+\s/, "").replace(/\s+\(default\)$/, "") || "";
+  lvBusy = true;
+  try {
+    await api("/live/device", { device: sel.value });
+    lvStore.set("lvDevice", sel.value);
+    toast(lv.paused ? `It will listen to ${label} when you resume.` : `Now listening to ${label}, in the same recording.`);
+  } catch (e) {
+    toast("Couldn't change the device: " + e.message);
+    sel.value = lv.device_id;
+  } finally { lvBusy = false; sel.blur(); }
+}
+async function lvPauseNow() {
+  const lv = lastState.live;
+  if (!lv) return;
+  const pause = !lv.paused;
+  lvBusy = true;
+  $("lvPause").disabled = true;
+  try {
+    await api("/live/pause", { paused: pause });
+    lv.paused = pause;           // (until the next /state)
+    lv.notice = null;
+    $("lvPause").textContent = pause ? "▶ Resume" : "⏸ Pause";
+  } catch (e) { toast("Couldn't " + (pause ? "pause" : "resume") + ": " + e.message); }
+  finally { lvBusy = false; $("lvPause").disabled = false; }
+}
+async function lvDevices() {
+  const sel = $("lvDev");
+  const d = await lvFetchDevices();
+  lvFillDevices(sel, d.devices, sel.value || lvStore.get("lvDevice"));
+  $("lvStart").disabled = !d.devices.length;
+  $("lvPanelNote").textContent = d.error ? "Can't list the sound devices: " + d.error
+    : d.devices.length ? "" : "No microphone or sound card found. Plug one in and press ↻.";
+}
+function lvShow() {
+  if (liveNow()) return lvGoToLatest();
+  lvOpen = true;
+  document.body.classList.add("lv-open");      // (the open recording's player and buttons wait)
+  if (!main.paused) main.pause();
+  ["browser", "review", "waiting", "dock", "changesPanel", "searchPanel", "lvBar"].forEach((id) => $(id).classList.add("hidden"));
+  browserOpen = false;
+  $("lvPanel").classList.remove("hidden");
+  $("lvBack").textContent = doc ? "Back to " + doc.file : "Back to the files";
+  lvDevices();
+}
+function lvHide() {
+  lvOpen = false;
+  document.body.classList.remove("lv-open");
+  $("lvPanel").classList.add("hidden");
+}
+function lvClose() {
+  lvHide();
+  if (doc) { $("review").classList.remove("hidden"); if (sel) $("dock").classList.remove("hidden"); }
+  else openBrowser(null, true);
+}
+function lvGoToLatest() {          // the header's timer while listening
+  if (browserOpen) closeBrowser();
+  window.scrollTo({ top: document.body.scrollHeight, behavior: "smooth" });
+}
+async function lvStartNow() {
+  const dev = $("lvDev").value;
+  if (!dev) return;
+  lvStore.set("lvDevice", dev);
+  const label = $("lvDev").selectedOptions[0]?.textContent.replace(/^\S+\s/, "").replace(/\s+\(default\)$/, "") || "";
+  const settings = await askSettings("live", "Before starting: live transcription", "Start listening");
+  if (!settings) return;
+  try { await api("/live/start", { device: dev, settings }); }
+  catch (e) { $("lvPanelNote").textContent = e.message; return; }
+  if (doc) toast("Your edits on " + doc.file + " are saved; open it again any time to carry on.");
+  lvHide();
+  closeDock();
+  doc = null;
+  showWaiting("Starting to listen to " + label + "…");
+}
+async function lvStopNow() {
+  $("lvStop").disabled = true;
+  try { await api("/live/stop", {}); }
+  catch (e) { $("lvStop").disabled = false; toast("Couldn't stop it: " + e.message); }
+}
+// Leaving a live session (opening another recording, closing): say it stops first.
+function lvConfirmLeave(what) {
+  return !liveNow() || confirm(`Live transcription is on. It will stop and be saved first (its review is kept), then ${what}.`);
+}
+$("lvBtn").onclick = () => liveNow() ? lvGoToLatest() : (lvOpen ? lvClose() : lvShow());
+$("lvBack").onclick = lvClose;
+$("lvRefresh").onclick = lvDevices;
+$("lvDev").onchange = () => lvStore.set("lvDevice", $("lvDev").value);
+$("lvStart").onclick = lvStartNow;
+$("lvStop").onclick = lvStopNow;
+$("lvPause").onclick = lvPauseNow;
+$("lvBarDev").onchange = lvSwitchDevice;
 
 // ------------------------------------------------------------------ jobs (punctuation, speakers) and the queue
 let docRev = 0, jobSeq = null;
@@ -2105,6 +2462,7 @@ function goNextFromPlayer() {     // nothing selected: the next unsure part afte
 $("next").onclick = () => sel ? goNext(sel.seg, sel.j) : goNextFromPlayer();
 $("finish").onclick = showFinish;
 $("text").addEventListener("input", updateRulePreview);
+document.querySelectorAll("input[name=add]").forEach((r) => r.addEventListener("change", () => { updateRulePreview(); $("text").focus(); }));
 $("text").addEventListener("keydown", (e) => {
   if (e.key === "Enter" && !e.isComposing) { e.preventDefault(); edit("save"); }
 });
@@ -2120,6 +2478,10 @@ document.addEventListener("keydown", (e) => {
   if (!$("searchPanel").classList.contains("hidden") && e.key === "Escape") { e.preventDefault(); return toggleSearch(false); }
   if (e.target === $("spQ") || e.target === $("spR")) return;
   if (!inField && e.key === "?") { e.preventDefault(); return showKeys(); }
+  if (lvOpen) {                           // the live panel: only Esc (back)
+    if (e.key === "Escape" && !inField) lvClose();
+    return;
+  }
   if (browserOpen) {                      // the file list has its own keys (Enter in the path box)
     if (e.key === "Escape" && doc) closeBrowser();
     return;

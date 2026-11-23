@@ -6,12 +6,12 @@ The transcript is made by **Shenava Koochik v1.0** (a 114M-parameter FastConform
 
 ## Setup (Windows): nothing to install
 
-Copy this folder anywhere and double-click **`review.bat`** (or `transcribe.bat`). On a computer where it hasn't run yet, it first sets itself up, all inside this folder:
+Copy this folder anywhere and double-click **`review.bat`** (or `transcribe.bat`, or `live.bat`). On a computer where it hasn't run yet, it first sets itself up, all inside this folder:
 
 1. **In the black window** (about 2 minutes): a portable Python 3.12 from python.org (11 MB) goes into `python\`, and the packages this program needs (about 300 MB) are installed into it. This step needs no admin rights and leaves the rest of the computer alone. (You can also run `setup.bat` on its own; it is safe to run again.)
 2. **On the review page**, with name, size and progress shown: the speech-recognition model Shenava Koochik (460 MB) and the speech detector, needed before anything can be transcribed; then, in the background while you work, the two second-opinion models **Nava** (1.6 GB) and **Vosk** (53 MB). Their progress shows in the file list ("Second-opinion models: Nava – downloading 35% of 1.6 GB…") and next to each suggestion. Two more are fetched the first time you use them: the **punctuation** model (260 MB) and **speaker detection** (34 MB).
 
-After that it works offline. Everything (Python, packages, models in `models\`, your work in `transcripts\`) stays in this folder, so the whole folder can be copied to another computer or a USB drive and run there as is. An older `.venv` folder from a previous setup is still used if `python\` isn't there yet.
+After that it works offline. Everything (Python, packages, models in `models\`, your work in `transcripts\`, live recordings in `recordings\`) stays in this folder, so the whole folder can be copied to another computer or a USB drive and run there as is. An older `.venv` folder from a previous setup is still used if `python\` isn't there yet.
 
 ## Use
 
@@ -25,6 +25,8 @@ python\python transcribe.py "D:\recordings" --out-dir "D:\subs"
 ```
 
 Works with mp3, wav, m4a, ogg, flac, mp4, mkv, mov and most other formats (FFmpeg is bundled through PyAV, no separate install).
+
+- To transcribe **as it is spoken**, and review it while it listens, from a microphone or from what the computer plays, double-click **`live.bat`**: see [Live transcription](#live-transcription).
 
 ## Options
 
@@ -45,8 +47,41 @@ Works with mp3, wav, m4a, ogg, flac, mp4, mkv, mov and most other formats (FFmpe
 | `--confidence X` | Words the main model is less sure of than this (0–1) count as unsure: they're checked by Nava and Vosk and highlighted. Default `0.65` (on the 4-minute test clip, 50 unsure parts in 442 words) or the last value chosen on the review page; lower it (e.g. `0.4`) for fewer |
 | `--keywords L` | Keyword lists to use, comma-separated: names of lists in the `keywords` folder (e.g. `philosophy,names`), paths to `.txt` files, or `none` (default: the ones used last) |
 | `--fuzziness X` | How loosely words are matched to keywords: `0` = exact only, `1` = default, `2` = loose |
+| `--live` | Transcribe live from a microphone or a sound card (see [Live transcription](#live-transcription)). With `--review`: open the review page on its live panel (this is what `live.bat` does) |
+| `--device D` | With `--live` in the terminal: the device's number from `--list-devices`, or part of its name (default: ask) |
+| `--list-devices` | List the microphones and sound cards that can be listened to |
 
 Subtitle layout (42 chars/line, 2 lines, max 7 s per cue) can be changed at the top of `transcribe.py`.
+
+## Live transcription
+
+**Double-click `live.bat`** (or press **🎙 Live** at the top of the review page) to transcribe as it is spoken, and review it while it listens. Choose what to listen to:
+
+- a **microphone** (🎙): you, a speaker in the room, a recorder plugged into the line input;
+- **What plays on …** (🔊): whatever the computer plays through that sound card, such as a video call, a Clubhouse room, a live stream or a video in the browser. It is taken straight from the sound card (Windows "loopback"), so other noise in the room isn't picked up. Virtual cables (e.g. VB-Audio) show up here too.
+
+Press **● Start…**: the **Before starting** dialog asks for the keyword lists, the unsure threshold and the second opinions, as for a recording. The live session then opens **like any recording**, in the same review view: each line appears a moment after the speaker pauses, and the words being spoken now show in grey at the bottom, corrected as the sentence goes on. A bar under the header shows how long it has been listening and the sound level, and warns if nothing comes in for a while (a muted microphone, or the sound going to another device). The red timer in the header brings you back to the latest line.
+
+**Review while it listens.** Everything on the review page works on the lines already said: unsure words are highlighted (the editor bar opens on the next one by itself once you've caught up), click any word to correct it, keyword additions, off-topic marks, find and replace, undo. Nava's and Vosk's guesses arrive a few seconds after each line, and unsure parts they are sure of are settled automatically, as for a recording. Two things wait until you stop:
+
+- **Listening.** A clip isn't played by itself while listening, since the microphone would hear it or the sound card would record it: press ▶ in the editor bar to hear one anyway (with headphones). The player for the whole recording appears once you stop.
+- **Punctuation** is added when you stop (a few seconds); **👥 Find speakers** too, once stopped.
+
+**⏸ Pause** in the bar lets go of the device: nothing is recorded until you press **▶ Resume**, and the recording then carries on from where it was, without the gap (what was being said when you paused becomes a line at once). The list next to it shows what it listens to; choose another device there at any time (while listening, or while paused) and it carries on from that one, in the same recording, for instance from the microphone to what plays on the speakers. If the device stops working (unplugged, a headset switched off), it pauses and says so; choose another and press Resume.
+
+Press **■ Stop** in the bar when it's over: that ends the live session for good. The review simply carries on: the whole recording can now be played, and **Finish** writes the `.srt` and the documents as for any recording. The sound is kept as a WAV file in the **`recordings`** folder of this program (16 kHz mono, about 115 MB an hour; it is written as it comes in, so even a crash keeps what was recorded), and the lines, your edits and the other models' guesses go to its folder in `transcripts`, so it can be reopened from the file list like any recording. The `recordings` folder is kept out of the Git repository.
+
+While listening, the background queue waits, so the live text keeps up; Nava and Vosk wait too if it falls more than 2 seconds behind. Opening another recording, starting another live session or closing the program stops the live session first (and saves it); closing only the page leaves it listening (open the link in the black window to come back to it). If the program crashes while listening, the recording is kept and is transcribed again when you open it, but edits made during that session are lost.
+
+Without the browser, from a terminal (no review; the console may show Persian letters unjoined):
+
+```bat
+python\python transcribe.py --list-devices
+python\python transcribe.py --live --device 1
+python\python transcribe.py --live --device "CABLE Input"
+```
+
+`--live` without `--device` asks which one to use; type `p` and Enter to pause and resume, press Enter to stop. It writes the `.srt` and documents at once; drag the recording onto `review.bat` to review it (it opens without being transcribed again).
 
 ## Keywords (names and special terms)
 
@@ -76,9 +111,9 @@ The **transcript appears live**, a few seconds after the program starts, one lin
 - A word **you changed** shows what the model had heard (hover it, or in the editor bar) with **Put back what it heard**.
 - **Undo** (**↶** or **Ctrl+Z**) takes back your last change, mark or replace-all, up to 100 steps (for the open recording, until the program closes). A word added to a keyword list stays in the list.
 - **Enter** saves what's in the box. On a highlighted part, Enter with the text unchanged keeps the model's guess, and either way it moves on to the next highlighted part. **N** jumps to the next one, **Esc** closes the bar, **Ctrl+Space** replays; tick *slower* for 75% speed.
-- **Ctrl+B** / *Leave blank* writes `[…]` in the subtitles; *Delete words* removes them.
+- **Ctrl+B** / *Leave blank* writes `[…]` in the subtitles; *Delete* removes them.
 - **Replace all N in this recording** appears when the selected words occur more than once: it puts what you typed in place of every one of them (whole words; spelling variants like ي/ی and half-spaces count as the same). Unlike a keyword rule, it changes only this recording.
-- Before saving a correction you can also add it to the first ticked keyword list, **as a keyword** (what you typed) or **as a rule** (always change what was heard into what you typed). It's applied at once to every line you haven't edited, and to future files. Rules aren't offered for short single words like «سر», which would be changed everywhere.
+- Before saving a correction you can also add it to the first ticked keyword list, **keyword** (what you typed) or **rule** (always change what was heard into what you typed). It's applied at once to every line you haven't edited, and to future files. Rules aren't offered for short single words like «سر», which would be changed everywhere.
 - **Finish & save subtitles** writes the .srt, and the transcript as a document (see below). If some parts are still highlighted, it asks whether to keep them as heard or leave them blank. You can press it before transcription is done; the rest of the file then gets the same choice and the .srt is written when it completes. Your edits are kept if you reload the page.
 
 ### Marking off-topic parts
@@ -86,7 +121,7 @@ The **transcript appears live**, a few seconds after the program starts, one lin
 Greetings, connection trouble, small talk and the like can be marked, word by word, so they're left out of a lesson-only copy of the output.
 
 - **Select the words**: drag across them with the mouse (across lines too), or click the first word and **Shift+click** the last. A single click selects one word.
-- Press **Mark off-topic** in the editor bar, or **M** (**Ctrl+M** while the cursor is in the text box). Marked words are greyed and struck through, with a small *⊘ off-topic* where the stretch starts.
+- Press **Off-topic** in the editor bar, or **M** (**Ctrl+M** while the cursor is in the text box). Marked words are greyed and struck through, with a small *⊘ off-topic* where the stretch starts.
 - To take words back out, select them and press **Unmark** or **Shift+M**; the rest of the stretch stays marked.
 - **hide off-topic** (next to the player) hides the marked words and skips them while playing, so you can read and listen to just the lesson.
 - Unsure words inside marked stretches aren't counted or visited by *Next unsure*: they'll be left out anyway.

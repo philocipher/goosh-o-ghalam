@@ -358,6 +358,22 @@ class WorkDir:
                                    ensure_ascii=False) + "\n")
         self._out.flush()
 
+    def refresh_header(self):
+        """
+        The recording grew while it was transcribed (a live one): note its final size and
+        time in segments.jsonl, so the saved lines are taken as belonging to it.
+        """
+        st = self.media.stat()
+        self.header.update(size=st.st_size, mtime=int(st.st_mtime))
+        if not self._segments.exists():
+            return
+        with self._lock:
+            lines = self._segments.read_text(encoding="utf-8").splitlines(keepends=True)
+            lines[:1] = [json.dumps(self.header, ensure_ascii=False) + "\n"]
+            tmp = self._segments.with_suffix(".tmp")
+            tmp.write_text("".join(lines), encoding="utf-8")
+            os.replace(tmp, self._segments)
+
     def finish_segments(self):
         if self._out:
             self._out.write('{"done": true}\n')

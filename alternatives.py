@@ -15,6 +15,7 @@ import heapq
 import itertools
 import json
 import threading
+import time
 import zipfile
 from pathlib import Path
 
@@ -313,6 +314,7 @@ class AltEngine:
         self.current = {m.name: None for m in self.models}   # key being worked on
         self.cache = {}            # key -> {model name: {"words": [...], "conf": [...] | None}}
         self.on_result = None      # (key, model name, result) -> saved
+        self.hold = None           # -> True while they should wait (a live session is on)
         self.queues = {m.name: ([], {}) for m in self.models}  # heap, key -> best priority
         self.count = itertools.count()
         self.cv = threading.Condition()
@@ -410,6 +412,8 @@ class AltEngine:
                 with self.cv:
                     self.current[m.name] = None
                 continue
+            while self.hold is not None and self.hold():
+                time.sleep(0.3)
             try:
                 words, conf = m.transcribe(clip)
                 result = {"words": list(words), "conf": [round(c, 3) for c in conf] if conf else None}

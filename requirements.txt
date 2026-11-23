@@ -3,6 +3,8 @@ av>=12
 numpy
 onnxruntime
 kaldi-native-fbank
+# live transcription: microphones and what the computer plays (loopback)
+soundcard>=0.4.3
 # second opinions on unsure parts in the review page (--alternatives)
 faster-whisper>=1.1
 vosk>=0.3.45
